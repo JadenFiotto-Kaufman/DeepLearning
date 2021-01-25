@@ -30,8 +30,14 @@ class _VisionDataset(Dataset):
             if rotate_transform:
                 transforms.insert(0, _transforms.RandomRotation(degrees=rotate_transform, expand=True))
 
-        if image_size:
-            transforms.append(_transforms.Resize(image_size))
+        
+
+        if image_resize:
+            image_resize = (image_resize, image_resize) if len(image_resize) == 1 else image_resize
+            transforms.append(_transforms.Resize(image_resize))
+        if image_center_crop:
+            image_center_crop = (image_center_crop, image_center_crop) if len(image_center_crop) == 1 else image_center_crop
+            transforms.append(_transforms.CenterCrop(image_center_crop))
         transforms.append(_transforms.ToTensor())
         if normalize and normalization:
             transforms.append(Normalize(*normalization))
@@ -42,8 +48,8 @@ class _VisionDataset(Dataset):
 
     @staticmethod
     def args(parser):
-        parser.add_argument("--image_size", type=int, nargs='+', required=True)
-
+        parser.add_argument("--image_resize", type=int, nargs='+', required=True)
+        parser.add_argument("--image_center_crop", type=int, nargs='+', required=True)
 
         parser.add_argument("--normalize", nargs='?', default=False, const=True, type=bool)
         parser.add_argument("--grayscale_transform", nargs='?', default=None, const=.1, type=float,

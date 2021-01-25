@@ -102,7 +102,15 @@ def main():
 
     args, _ = parser.parse_known_args()
 
-    device = torch.device("cuda" if args.cuda else "cpu")
+    device = torch.device("cpu")
+    if args.cuda:
+        if torch.cuda.device_count() == 0:
+            print("=> no cuda devices available")
+        elif not torch.cuda.is_available():
+            print("=> cuda is not available")
+        else: 
+            device = torch.device("cuda")
+    
 
     model_state_dict, optimizer_state_dict, training_tracker = init(args, device)
 
