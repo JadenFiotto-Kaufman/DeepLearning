@@ -173,12 +173,13 @@ def train_epoch(model, criterion, train_loader, optimizer, epoch, device, print_
     end = time.time()
     for i, (data, targets) in enumerate(train_loader):
         data_time.update(time.time() - end)
-
+        
         data, targets = data.to(device), targets.to(device)
 
         optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, targets)
+        
         losses.update(loss.item(), data.size(0))
         loss.backward()
         optimizer.step()

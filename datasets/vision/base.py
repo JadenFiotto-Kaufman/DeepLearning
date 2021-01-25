@@ -10,7 +10,8 @@ class _VisionDataset(Dataset):
         color_jitter_transform,
         rotate_transform,
         normalize, 
-        image_size,
+        image_resize,
+        image_center_crop,
         transforms = None,
         normalization = None,
         **kwargs):
@@ -24,19 +25,17 @@ class _VisionDataset(Dataset):
             if grayscale_transform:
                 transforms.insert(0, _transforms.RandomGrayscale(p=grayscale_transform))
             if horizontal_flip_transform:
-                transforms.insert(0, _transforms.RandomHorizontalFlip(p=grayscale_transform))
+                transforms.insert(0, _transforms.RandomHorizontalFlip(p=horizontal_flip_transform))
             if color_jitter_transform:
                 transforms.insert(0, _transforms.ColorJitter(.4, .4, .4, .2))
             if rotate_transform:
                 transforms.insert(0, _transforms.RandomRotation(degrees=rotate_transform, expand=True))
 
-        
-
         if image_resize:
-            image_resize = (image_resize, image_resize) if len(image_resize) == 1 else image_resize
+            image_resize = (image_resize[0], image_resize[0]) if len(image_resize) == 1 else image_resize
             transforms.append(_transforms.Resize(image_resize))
         if image_center_crop:
-            image_center_crop = (image_center_crop, image_center_crop) if len(image_center_crop) == 1 else image_center_crop
+            image_center_crop = (image_center_crop[0], image_center_crop[0]) if len(image_center_crop) == 1 else image_center_crop
             transforms.append(_transforms.CenterCrop(image_center_crop))
         transforms.append(_transforms.ToTensor())
         if normalize and normalization:
