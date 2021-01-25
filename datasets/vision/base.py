@@ -1,0 +1,58 @@
+from .. import Dataset
+from torchvision.transforms import transforms as _transforms, Compose, Normalize
+
+class _VisionDataset(Dataset):
+
+    def __init__(
+        self, 
+        grayscale_transform,
+        horizontal_flip_transform,
+        color_jitter_transform,
+        rotate_transform,
+        normalize, 
+        image_size,
+        transforms = None,
+        normalization = None,
+        **kwargs):
+
+        kwargs = super().__init__(**kwargs)
+
+        transforms = transforms if transforms else []
+
+        if self.dataset_type is Dataset.DatasetType.train:
+
+            if grayscale_transform:
+                transforms.insert(0, _transforms.RandomGrayscale(p=grayscale_transform))
+            if horizontal_flip_transform:
+                transforms.insert(0, _transforms.RandomHorizontalFlip(p=grayscale_transform))
+            if color_jitter_transform:
+                transforms.insert(0, _transforms.ColorJitter(.4, .4, .4, .2))
+            if rotate_transform:
+                transforms.insert(0, _transforms.RandomRotation(degrees=rotate_transform, expand=True))
+
+        if image_size:
+            transforms.append(_transforms.Resize(image_size))
+        transforms.append(_transforms.ToTensor())
+        if normalize and normalization:
+            transforms.append(Normalize(*normalization))
+
+        kwargs['transform'] = Compose(transforms)
+
+        return kwargs
+
+    @staticmethod
+    def args(parser):
+        parser.add_argument("--image_size", type=int, nargs='+', required=True)
+
+
+        parser.add_argument("--normalize", nargs='?', default=False, const=True, type=bool)
+        parser.add_argument("--grayscale_transform", nargs='?', default=None, const=.1, type=float,
+                        help="transform the input images to a grayscale at some rate (default: .1)")
+        parser.add_argument("--horizontal_flip_transform", nargs='?', default=None, const=.5, type=float,
+                            help="transform the input images and grids by horizontally flipping them at some rate (default: .5)")
+        parser.add_argument("--rotate_transform", nargs='?',
+                        default=None, const=2, type=int)
+        parser.add_argument("--color_jitter_transform",
+                            default=False, const=True, nargs='?')
+
+        super(_VisionDataset, _VisionDataset).args(parser)
