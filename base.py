@@ -31,17 +31,20 @@ class Base():
         if isinstance(cls, str):
             cls = Base.options(parent)[cls]
             
-        kwargs = {**Base.kwargs(cls), **kwargs}
+        _kwargs = Base.kwargs(cls)
         
-        instance = cls(**kwargs)
+        instance = cls(**{**_kwargs, **kwargs})
 
         if wrappers:
             for wrapper in wrappers:
                 if isinstance(wrapper, str):
                     wrapper = Base.options(cls.__wrapper__)[wrapper]
-                instance = wrapper(obj=instance, **Base.kwargs(wrapper))
+                wkwargs = Base.kwargs(wrapper)
+                instance = wrapper(obj=instance, **wkwargs)
+
+                _kwargs.update(wkwargs)
         
-        return instance
+        return instance, _kwargs
 
 
 class _Wrapper(Base):
@@ -53,7 +56,7 @@ class _Wrapper(Base):
 
         @staticmethod
         def args(parser):
-            self._obj.args(parser)
+            pass
 
 
 Base.__wrapper__ = _Wrapper

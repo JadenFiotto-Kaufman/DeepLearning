@@ -53,7 +53,7 @@ class _VisionDataset(Dataset):
         parser.add_argument("--image_resize", type=int, nargs='+', required=True)
         parser.add_argument("--image_center_crop", type=int, default=None, nargs='*')
 
-        parser.add_argument("--normalization", nargs='.', default=None,type=float)
+        parser.add_argument("--normalization", nargs='*', default=None,type=float)
         parser.add_argument("--grayscale_transform", nargs='?', default=None, const=.1, type=float,
                         help="transform the input images to a grayscale at some rate (default: .1)")
         parser.add_argument("--horizontal_flip_transform", nargs='?', default=None, const=.5, type=float,

@@ -22,6 +22,8 @@ class TrainValSplit(Dataset.__wrapper__):
     @staticmethod
     def args(parser):
         parser.add_argument("--val_percent",  default=.15, type=float)
+        
+        super(TrainValSplit,TrainValSplit).args(parser)
 
 
 

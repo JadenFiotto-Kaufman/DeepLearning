@@ -56,10 +56,10 @@ def init(args, device):
         checkpoint = torch.load(args.load, map_location=device)
 
         if 'args' in checkpoint and not args.dont_load_args:
-            print("==> loading args")
-            for arg in vars(checkpoint['args']):
+            
+            for arg in checkpoint['args']:
                 if f'--{arg}' not in sys.argv:
-                    value = getattr(checkpoint['args'], arg)
+                    value = checkpoint['args'][arg]
                     if value:
                         sys.argv.append(f'--{arg}')
                         if not isinstance(value, list):
@@ -90,7 +90,7 @@ def get_dataloaders(dataset, args):
 
     if dataset.dataset_type == Dataset.DatasetType.train:
             train_loader = dataset.dataloader()
-            val_loader = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers, dataset_type=Dataset.DatasetType.validate).dataloader()
+            val_loader = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers, dataset_type=Dataset.DatasetType.validate)[0].dataloader()
     else:
         val_loader = dataset.dataloader()
 
@@ -121,17 +121,22 @@ def main():
     core_args(parser)
 
     args, _ = parser.parse_known_args()
+    kwargs = vars(args)
 
-    dataset = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers)
+    dataset, _kwargs = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers)
+    kwargs.update(_kwargs)
 
     train_loader, val_loader = get_dataloaders(dataset, args)
 
-    model = Base.get_instance(args.model, parent=Model).to(device)
+    model, _kwargs = Base.get_instance(args.model, parent=Model)
+    model = model.to(device)
+    kwargs.update(_kwargs)
 
     if model_state_dict:
         model.load_state_dict(model_state_dict)
 
-    optimizer = Base.get_instance(args.optimizer, parent=Optimizer, params=model.parameters())
+    optimizer, _kwargs = Base.get_instance(args.optimizer, parent=Optimizer, params=model.parameters())
+    kwargs.update(_kwargs)
 
     if optimizer_state_dict:
         optimizer.load_state_dict(optimizer_state_dict)
@@ -139,20 +144,15 @@ def main():
     scheduler = None
 
     if args.scheduler:
-        scheduler = Base.get_instance(args.scheduler, parent=Scheduler, optimizer=optimizer)
+        scheduler, _kwargs = Base.get_instance(args.scheduler, parent=Scheduler, optimizer=optimizer)
+        kwargs.update(_kwargs)
+
         if scheduler_state_dict:
             scheduler.load_state_dict(scheduler_state_dict)
 
-    criterion = Base.get_instance(args.loss, parent=Loss).to(device)
-
-    dataset.args(parser)
-    model.args(parser)
-    optimizer.args(parser)
-    criterion.args(parser)
-    if scheduler:
-        scheduler.args(parser)
-
-    args, _ = parser.parse_known_args()
+    criterion, _kwargs = Base.get_instance(args.loss, parent=Loss)
+    criterion = criterion.to(device)
+    kwargs.update(_kwargs)
 
     if dataset.dataset_type is Dataset.DatasetType.validate:
         print("=> validation mode")
@@ -165,8 +165,7 @@ def main():
         print("=> training mode")
         train(model, criterion, train_loader, val_loader, optimizer, scheduler,
               range(args.start_epoch, args.epochs), device,
-              args.print_freq, args.save_freq, args.best_loss, training_tracker, args)
-
+              args.print_freq, args.save_freq, args.best_loss, training_tracker, kwargs)
 
 def train_epoch(model, criterion, train_loader, optimizer, epoch, device, print_freq):
     model.train()
@@ -225,8 +224,8 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
             is_best = val_loss < best_loss
             best_loss = min(val_loss, best_loss)
 
-            args.best_loss = best_loss
-            args.start_epoch = epoch + 1
+            args['best_loss'] = best_loss
+            args['start_epoch'] = epoch + 1
 
             util.save_checkpoint({
                 'state_dict': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
@@ -250,6 +249,7 @@ def validate(val_loader, model, criterion, device, print_freq, save_results=Fals
         prefix='Validation: ')
 
     results = []
+    acc = []
 
     with torch.no_grad():
         end = time.time()
@@ -257,6 +257,7 @@ def validate(val_loader, model, criterion, device, print_freq, save_results=Fals
             data, targets = data.to(device), targets.to(device)
 
             output = model(data)
+            acc.append((targets.cpu().numpy() == output.cpu().numpy().argmax(axis=1)).sum() / len(targets))
             loss = criterion(output, targets)
             losses.update(loss.item(), data.size(0))
 
@@ -267,6 +268,7 @@ def validate(val_loader, model, criterion, device, print_freq, save_results=Fals
                 progress.display(i)
             if save_results:
                 results.extend([(i * len(data) + ii, output[ii].cpu().numpy()) for ii in range(len(data))])
+    print(sum(acc) / len(acc))
 
     return losses.avg, results
 
