@@ -1,7 +1,9 @@
 from .. import Dataset
-from torchvision.transforms import transforms as _transforms, Compose, Normalize
+from torchvision.transforms import transforms as _transforms, Compose
 
 class _VisionDataset(Dataset):
+
+    __normalization__ = None
 
     def __init__(
         self, 
@@ -9,11 +11,10 @@ class _VisionDataset(Dataset):
         horizontal_flip_transform,
         color_jitter_transform,
         rotate_transform,
-        normalize, 
+        normalization, 
         image_resize,
         image_center_crop,
         transforms = None,
-        normalization = None,
         **kwargs):
 
         kwargs = super().__init__(**kwargs)
@@ -38,9 +39,11 @@ class _VisionDataset(Dataset):
             image_center_crop = (image_center_crop[0], image_center_crop[0]) if len(image_center_crop) == 1 else image_center_crop
             transforms.append(_transforms.CenterCrop(image_center_crop))
         transforms.append(_transforms.ToTensor())
-        if normalize and normalization:
-            transforms.append(Normalize(*normalization))
-
+        if normalization:
+            if len(normalization) == 6:
+                transforms.append(_transforms.Normalize(normalization[:3], normalization[3:6]))
+            if len(normalization) == 1 and self.__normalization__:
+                transforms.append(_transforms.Normalize(self.__normalization__[0], self.__normalization__[1]))
         kwargs['transform'] = Compose(transforms)
 
         return kwargs
@@ -48,9 +51,9 @@ class _VisionDataset(Dataset):
     @staticmethod
     def args(parser):
         parser.add_argument("--image_resize", type=int, nargs='+', required=True)
-        parser.add_argument("--image_center_crop", type=int, nargs='+', required=True)
+        parser.add_argument("--image_center_crop", type=int, default=None, nargs='*')
 
-        parser.add_argument("--normalize", nargs='?', default=False, const=True, type=bool)
+        parser.add_argument("--normalization", nargs='.', default=None,type=float)
         parser.add_argument("--grayscale_transform", nargs='?', default=None, const=.1, type=float,
                         help="transform the input images to a grayscale at some rate (default: .1)")
         parser.add_argument("--horizontal_flip_transform", nargs='?', default=None, const=.5, type=float,

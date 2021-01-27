@@ -1,10 +1,11 @@
 import argparse
 from enum import Enum
 
-import numpy as np
-from DeepLearning.base import Base
+from DeepLearning.base import Base, _Wrapper
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as _Dataset
+
+
 
 
 class Dataset(Base, _Dataset):
@@ -47,46 +48,27 @@ class Dataset(Base, _Dataset):
 
         super(Dataset,Dataset).args(parser)
 
-    @staticmethod
-    def val_args(cls):
-        parser = argparse.ArgumentParser(allow_abbrev=False)
-        cls.args(parser)
+    # @staticmethod
+    # def val_args(cls):
+    #     parser = argparse.ArgumentParser(allow_abbrev=False)
+    #     cls.args(parser)
 
-        for action in parser._actions:
-            print(action)
+    #     for action in parser._actions:
+    #         print(action)
         
-        return vars(parser.parse_known_args()[0])
+    #     return vars(parser.parse_known_args()[0])
 
 
 
-class DatasetSplit(Dataset):
+class _DatasetWrapper(Base.__wrapper__, Dataset):
 
-    def __init__(self, dataset, val_percent):
-        
-        self._dataset = dataset
-        
+        def __getattr__(self, name):
+            return getattr(self._obj, name)
 
-        np.random.seed(42)
-        indicies = np.arange(len(dataset))
-        np.random.shuffle(indicies)
+        def __len__(self):
+            return len(self._obj)
 
-        self._indicies = indicies[int(len(dataset) * val_percent):] if dataset.dataset_type is Dataset.DatasetType.train else indicies[:int(len(dataset) * val_percent)]
+        def __getitem__(self, index):
+            return self._obj.__getitem__(index)
 
-    def dataloader(self):
-        return DataLoader(
-            self,
-            batch_size=self._dataset.batch_size,
-            shuffle= self._dataset.dataset_type is Dataset.DatasetType.train,
-            num_workers=self._dataset.num_workers,
-            pin_memory=self._dataset.cuda
-        )
-
-    def __len__(self):
-        return len(self._indicies)
-
-
-    def __getitem__(self, index):
-        return self._dataset.__getitem__(self._indicies[index])
-
-
-
+Dataset.__wrapper__ = _DatasetWrapper

@@ -8,7 +8,7 @@ import argparse
 
 from DeepLearning import util
 from DeepLearning.base import Base
-from DeepLearning.datasets import Dataset, DatasetSplit
+from DeepLearning.datasets import Dataset
 from DeepLearning.losses import Loss
 from DeepLearning.optimizers import Optimizer
 from DeepLearning.models import Model
@@ -24,6 +24,7 @@ def core_args(parser):
     
     parser.add_argument("--model", type=str, choices=Base.options(Model).keys(), required=True)
     parser.add_argument("--dataset", type=str, choices=Base.options(Dataset).keys(), required=True)
+    parser.add_argument("--dataset_wrappers", type=str, choices=Base.options(Dataset.__wrapper__).keys(), nargs='*', default=None)
     parser.add_argument("--loss", type=str, choices=Base.options(Loss).keys(), required=True)
     parser.add_argument("--optimizer", type=str, choices=Base.options(Optimizer).keys(), required=True)
     
@@ -37,10 +38,7 @@ def core_args(parser):
     parser.add_argument("--epochs", type=int, default=100,
                         help="number of epochs  (default: 100)")
     parser.add_argument('--start_epoch', type=int, default=0,
-                        help="manual start epoch to start at for training")
-
-    parser.add_argument("--separate_val", nargs='?', default=False, const=True, type=bool)
-    parser.add_argument("--val_percent",  default=.15, type=float)
+                        help="manual start epoch to start at for training")    
 
 
 
@@ -60,8 +58,13 @@ def init(args, device):
                 if f'--{arg}' not in sys.argv:
                     value = getattr(checkpoint['args'], arg)
                     if value:
-                        value = value if not isinstance(value, list) else ' '.join(map(str, value))
-                        sys.argv.append(f'--{arg}={value}')
+                        sys.argv.append(f'--{arg}')
+                        if not isinstance(value, list):
+                            sys.argv.append(f'{value}')
+                        else:
+                            for _value in value:
+                                sys.argv.append(f'{_value}')
+
                         print(f"===> {arg} : {value}")
 
         model_state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
@@ -73,7 +76,6 @@ def init(args, device):
 
         print("=> loaded checkpoint '{}'"
                 .format(args.load))
-
     return model_state_dict, optimizer_state_dict, training_tracker
 
 def get_dataloaders(dataset, args):
@@ -82,12 +84,8 @@ def get_dataloaders(dataset, args):
     val_loader = None
 
     if dataset.dataset_type == Dataset.DatasetType.train:
-        if not args.separate_val:
-            train_loader = DatasetSplit(dataset, args.val_percent).dataloader()
-            val_loader = DatasetSplit(dataset.get_instance(dataset.__class__, Dataset, dataset_type=Dataset.DatasetType.validate), args.val_percent).dataloader()
-        else:
             train_loader = dataset.dataloader()
-            val_loader = dataset.__class__(**Dataset.val_args(dataset.__class__)).dataloader()
+            val_loader = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers, dataset_type=Dataset.DatasetType.validate).dataloader()
     else:
         val_loader = dataset.dataloader()
 
@@ -111,7 +109,6 @@ def main():
         else: 
             device = torch.device("cuda")
     
-
     model_state_dict, optimizer_state_dict, training_tracker = init(args, device)
 
     parser = argparse.ArgumentParser(allow_abbrev=False)
@@ -120,22 +117,21 @@ def main():
 
     args, _ = parser.parse_known_args()
 
-    dataset = Base.get_instance(args.dataset, Dataset)
+    dataset = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers)
 
     train_loader, val_loader = get_dataloaders(dataset, args)
 
-    model = Base.get_instance(args.model, Model).to(device)
+    model = Base.get_instance(args.model, parent=Model).to(device)
 
     if model_state_dict:
         model.load_state_dict(model_state_dict)
 
-    optimizer = Base.get_instance(args.optimizer, Optimizer, params=model.parameters())
+    optimizer = Base.get_instance(args.optimizer, parent=Optimizer, params=model.parameters())
 
     if optimizer_state_dict:
         optimizer.load_state_dict(optimizer_state_dict)
 
-    criterion = Base.get_instance(args.loss, Loss).to(device)
-
+    criterion = Base.get_instance(args.loss, parent=Loss).to(device)
 
     dataset.args(parser)
     model.args(parser)
@@ -179,7 +175,6 @@ def train_epoch(model, criterion, train_loader, optimizer, epoch, device, print_
         optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, targets)
-        
         losses.update(loss.item(), data.size(0))
         loss.backward()
         optimizer.step()
@@ -234,7 +229,7 @@ def validate(val_loader, model, criterion, device, print_freq, save_results=Fals
     progress =  util.ProgressMeter(
         len(val_loader),
         [batch_time, losses],
-        prefix='Test: ')
+        prefix='Validation: ')
 
     results = []
 

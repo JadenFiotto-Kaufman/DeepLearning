@@ -1,5 +1,5 @@
 from .base import _VisionModel
-from torchvision.models import vgg16_bn
+from torchvision.models import vgg16_bn, vgg16
 import torch
 
 
@@ -30,4 +30,10 @@ class VGG16_bn(_VGG):
 
     def __init__(self, **kwargs):
         model = vgg16_bn(**kwargs)
+        super().__init__(model=model,**kwargs)
+
+class VGG16(_VGG):
+
+    def __init__(self, **kwargs):
+        model = vgg16(**kwargs)
         super().__init__(model=model,**kwargs)

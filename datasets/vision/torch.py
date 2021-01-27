@@ -7,6 +7,7 @@ class ImageFolder(_VisionDataset, _ImageFolder):
         kwargs = _VisionDataset.__init__(self, **kwargs)
         _ImageFolder.__init__(self, **kwargs)
 
+    @staticmethod
     def args(parser):    
         parser.add_argument("--root", type=str, required=True)
 
