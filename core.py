@@ -12,6 +12,7 @@ from DeepLearning.datasets import Dataset
 from DeepLearning.losses import Loss
 from DeepLearning.optimizers import Optimizer
 from DeepLearning.models import Model
+from DeepLearning.schedulers import Scheduler
 
 
 def init_args(parser):
@@ -27,6 +28,7 @@ def core_args(parser):
     parser.add_argument("--dataset_wrappers", type=str, choices=Base.options(Dataset.__wrapper__).keys(), nargs='*', default=None)
     parser.add_argument("--loss", type=str, choices=Base.options(Loss).keys(), required=True)
     parser.add_argument("--optimizer", type=str, choices=Base.options(Optimizer).keys(), required=True)
+    parser.add_argument("--scheduler", type=str, choices=Base.options(Scheduler).keys(), default=None)
     
     parser.add_argument("--print_freq", type=int, default=10,
                         help="number of batches between two logs (default: 10)")
@@ -45,6 +47,7 @@ def core_args(parser):
 def init(args, device):
     training_tracker = {'train': [], 'val': []}
     optimizer_state_dict = None
+    scheduler_state_dict = None
     model_state_dict = None
 
     if args.load:
@@ -71,12 +74,14 @@ def init(args, device):
 
         if 'optimizer' in checkpoint:
             optimizer_state_dict = checkpoint['optimizer']
+        if 'scheduler' in checkpoint:
+            optimizer_state_dict = checkpoint['scheduler']
         if 'tracker' in checkpoint:
             training_tracker = checkpoint['tracker']
 
         print("=> loaded checkpoint '{}'"
                 .format(args.load))
-    return model_state_dict, optimizer_state_dict, training_tracker
+    return model_state_dict, optimizer_state_dict, scheduler_state_dict, training_tracker
 
 def get_dataloaders(dataset, args):
 
@@ -109,7 +114,7 @@ def main():
         else: 
             device = torch.device("cuda")
     
-    model_state_dict, optimizer_state_dict, training_tracker = init(args, device)
+    model_state_dict, optimizer_state_dict, scheduler_state_dict, training_tracker = init(args, device)
 
     parser = argparse.ArgumentParser(allow_abbrev=False)
 
@@ -131,12 +136,21 @@ def main():
     if optimizer_state_dict:
         optimizer.load_state_dict(optimizer_state_dict)
 
+    scheduler = None
+
+    if args.scheduler:
+        scheduler = Base.get_instance(args.scheduler, parent=Scheduler, optimizer=optimizer)
+        if scheduler_state_dict:
+            scheduler.load_state_dict(scheduler_state_dict)
+
     criterion = Base.get_instance(args.loss, parent=Loss).to(device)
 
     dataset.args(parser)
     model.args(parser)
     optimizer.args(parser)
     criterion.args(parser)
+    if scheduler:
+        scheduler.args(parser)
 
     args, _ = parser.parse_known_args()
 
@@ -149,7 +163,7 @@ def main():
         results = predict(model, val_loader, device)
     else:
         print("=> training mode")
-        train(model, criterion, train_loader, val_loader, optimizer,
+        train(model, criterion, train_loader, val_loader, optimizer, scheduler,
               range(args.start_epoch, args.epochs), device,
               args.print_freq, args.save_freq, args.best_loss, training_tracker, args)
 
@@ -187,9 +201,12 @@ def train_epoch(model, criterion, train_loader, optimizer, epoch, device, print_
 
     return losses.avg
 
-def train(model, criterion, train_loader, val_loader, optimizer, epoch_range, device, print_freq, save_freq, best_loss, training_tracker, args):
+def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoch_range, device, print_freq, save_freq, best_loss, training_tracker, args):
 
     for epoch in epoch_range:
+
+        if scheduler:
+            scheduler.step()
 
         train_loss = train_epoch(model, criterion, train_loader,
                                  optimizer, epoch, device, print_freq)
@@ -214,6 +231,7 @@ def train(model, criterion, train_loader, val_loader, optimizer, epoch_range, de
             util.save_checkpoint({
                 'state_dict': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
                 'optimizer': optimizer.state_dict(),
+                'scheduler': scheduler.state_dict() if scheduler else None,
                 'tracker': training_tracker,
                 'args': args
             }, is_best)
