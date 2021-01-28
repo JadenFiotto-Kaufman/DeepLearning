@@ -56,7 +56,6 @@ def init(args, device):
         checkpoint = torch.load(args.load, map_location=device)
 
         if 'args' in checkpoint and not args.dont_load_args:
-            
             for arg in checkpoint['args']:
                 if f'--{arg}' not in sys.argv:
                     value = checkpoint['args'][arg]
@@ -128,7 +127,7 @@ def main():
 
     train_loader, val_loader = get_dataloaders(dataset, args)
 
-    model, _kwargs = Base.get_instance(args.model, parent=Model)
+    model, _kwargs = Base.get_instance(args.model, parent=Model, dataset=dataset)
     model = model.to(device)
     kwargs.update(_kwargs)
 
@@ -150,7 +149,7 @@ def main():
         if scheduler_state_dict:
             scheduler.load_state_dict(scheduler_state_dict)
 
-    criterion, _kwargs = Base.get_instance(args.loss, parent=Loss)
+    criterion, _kwargs = Base.get_instance(args.loss, parent=Loss, dataset=dataset)
     criterion = criterion.to(device)
     kwargs.update(_kwargs)
 

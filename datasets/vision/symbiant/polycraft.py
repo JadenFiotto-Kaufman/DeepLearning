@@ -3,10 +3,10 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-
-from PIL import Image
 from DeepLearning.datasets.base import Dataset
 from DeepLearning.datasets.vision.base import _VisionDataset
+from PIL import Image
+
 
 class PolycraftMappingDataset(_VisionDataset):
 

@@ -1,5 +1,7 @@
-from .base import _VisionDataset
 from torchvision.datasets import ImageFolder as _ImageFolder
+
+from .base import _VisionDataset
+
 
 class ImageFolder(_VisionDataset, _ImageFolder):
 

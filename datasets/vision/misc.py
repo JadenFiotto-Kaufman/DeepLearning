@@ -1,5 +1,7 @@
-from .torch import ImageFolder
 import os
+
+from .torch import ImageFolder
+
 
 class ImageFolderSubset(ImageFolder):
 

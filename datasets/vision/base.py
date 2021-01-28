@@ -1,5 +1,8 @@
+from torchvision.transforms import Compose
+from torchvision.transforms import transforms as _transforms
+
 from .. import Dataset
-from torchvision.transforms import transforms as _transforms, Compose
+
 
 class _VisionDataset(Dataset):
 
