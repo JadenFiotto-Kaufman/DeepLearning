@@ -7,8 +7,8 @@ import numpy as np
 import PIL.Image as pil
 import skimage.transform
 
-from .monodepth.utils import generate_depth_map, pil_loader
-from .monodepth.base import _MonoDataset
+from ._monodepth.utils import generate_depth_map, pil_loader
+from ._monodepth.base import _MonoDataset
 
 
 class _HUGADataset(_MonoDataset):
@@ -58,9 +58,9 @@ class _HUGADataset(_MonoDataset):
         super(_HUGADataset,_HUGADataset).args(parser)
 
 
-class HUGADataset(_HUGADataset):
+class HUGA(_HUGADataset):
     def __init__(self,**kwargs):
-        super().__init__(*kwargs)
+        super().__init__(**kwargs)
 
     def get_image_path(self, folder, frame_index, side):
         try:

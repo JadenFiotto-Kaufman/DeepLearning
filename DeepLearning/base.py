@@ -40,7 +40,7 @@ class Base():
                 if isinstance(wrapper, str):
                     wrapper = Base.options(cls.__wrapper__)[wrapper]
                 wkwargs = Base.kwargs(wrapper)
-                instance = wrapper(obj=instance, **wkwargs)
+                instance = wrapper(obj=instance, **{**wkwargs, **kwargs})
 
                 _kwargs.update(wkwargs)
         
@@ -49,10 +49,14 @@ class Base():
 
 class _Wrapper(Base):
         def __init__(self, obj, **kwargs):
-            self._obj = obj
+            self.__dict__['_obj'] = obj
+            self.__dict__.update(obj.__dict__)
+            
 
-        def __getattr__(self, name):
-            return getattr(self._obj, name)
+            return kwargs
+            
+        def __len__(self):
+            return len(self._obj)
 
         @staticmethod
         def args(parser):

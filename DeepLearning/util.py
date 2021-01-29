@@ -1,10 +1,9 @@
-import glob
-import os
 import pkgutil
 import importlib
 import matplotlib.pyplot as plt
 import torch
 import shutil
+import sys
 
 
 def subclasses(cls):
@@ -97,3 +96,48 @@ def save_training_tracker(path, train_loss, val_loss):
     plt.legend(loc="upper right")
     plt.savefig(path)
     plt.clf()
+
+def to_device(data, device):
+
+    if isinstance(data, torch.Tensor):
+        return data.to(device)
+
+    if isinstance(data, tuple):
+        return tuple([to_device(_data, device) for _data in data])
+
+    if isinstance(data, list):
+        for i in range(len(data)):
+            data[i] = to_device(data[i], device)
+
+    if isinstance(data, dict):
+        for key in data:
+            data[key] = to_device(data[key], device)
+
+    return data
+
+def load(args, device):
+
+    print("=> loading checkpoint '{}'".format(args.load))
+
+    checkpoint = torch.load(args.load, map_location=device)
+
+    if 'args' in checkpoint and not args.dont_load_args:
+        for arg in checkpoint['args']:
+            if f'--{arg}' not in sys.argv:
+                value = checkpoint['args'][arg]
+                if value:
+                    sys.argv.append(f'--{arg}')
+                    if not isinstance(value, list):
+                        sys.argv.append(f'{value}')
+                    else:
+                        for _value in value:
+                            sys.argv.append(f'{_value}')
+
+                    print(f"===> {arg} : {value}")
+
+    model_state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
+
+    print("=> loaded checkpoint '{}'"
+            .format(args.load))
+
+    return model_state_dict, checkpoint

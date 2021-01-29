@@ -1,7 +1,7 @@
 from torchvision.transforms import Compose
 from torchvision.transforms import transforms as _transforms
 
-from .. import Dataset
+from DeepLearning.datasets.base import Dataset
 
 
 class _VisionDataset(Dataset):

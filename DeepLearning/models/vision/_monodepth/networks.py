@@ -19,21 +19,19 @@ from .util import upsample
 class Project3D(nn.Module):
     """Layer which projects 3D points into a camera with intrinsics K and at position T
     """
-    def __init__(self, batch_size, height, width, eps=1e-7):
+    def __init__(self, height, width, eps=1e-7):
         super(Project3D, self).__init__()
 
-        self.batch_size = batch_size
         self.height = height
         self.width = width
         self.eps = eps
 
     def forward(self, points, K, T):
         P = torch.matmul(K, T)[:, :3, :]
-
         cam_points = torch.matmul(P, points)
 
         pix_coords = cam_points[:, :2, :] / (cam_points[:, 2, :].unsqueeze(1) + self.eps)
-        pix_coords = pix_coords.view(self.batch_size, 2, self.height, self.width)
+        pix_coords = pix_coords.view(len(K), 2, self.height, self.width)
         pix_coords = pix_coords.permute(0, 2, 3, 1)
         pix_coords[..., 0] /= self.width - 1
         pix_coords[..., 1] /= self.height - 1
@@ -91,17 +89,16 @@ class DepthDecoder(nn.Module):
             # upconv_0
             num_ch_in = self.num_ch_enc[-1] if i == 4 else self.num_ch_dec[i + 1]
             num_ch_out = self.num_ch_dec[i]
-            self.convs[("upconv", i, 0)] = ConvBlock(num_ch_in, num_ch_out)
-
+            self.add_module(str(("upconv", i, 0)), ConvBlock(num_ch_in, num_ch_out))
             # upconv_1
             num_ch_in = self.num_ch_dec[i]
             if self.use_skips and i > 0:
                 num_ch_in += self.num_ch_enc[i - 1]
             num_ch_out = self.num_ch_dec[i]
-            self.convs[("upconv", i, 1)] = ConvBlock(num_ch_in, num_ch_out)
+            self.add_module(str(("upconv", i, 1)), ConvBlock(num_ch_in, num_ch_out))
 
         for s in self.scales:
-            self.convs[("dispconv", s)] = Conv3x3(self.num_ch_dec[s], self.num_output_channels)
+            self.add_module(str(("dispconv", s)), Conv3x3(self.num_ch_dec[s], self.num_output_channels))
 
         self.decoder = nn.ModuleList(list(self.convs.values()))
         self.sigmoid = nn.Sigmoid()
@@ -112,14 +109,14 @@ class DepthDecoder(nn.Module):
         # decoder
         x = input_features[-1]
         for i in range(4, -1, -1):
-            x = self.convs[("upconv", i, 0)](x)
+            x = self._modules[str(("upconv", i, 0))](x)
             x = [upsample(x)]
             if self.use_skips and i > 0:
                 x += [input_features[i - 1]]
             x = torch.cat(x, 1)
-            x = self.convs[("upconv", i, 1)](x)
+            x = self._modules[str(("upconv", i, 1))](x)
             if i in self.scales:
-                self.outputs[("disp", i)] = self.sigmoid(self.convs[("dispconv", i)](x))
+                self.outputs[("disp", i)] = self.sigmoid(self._modules[str(("dispconv", i))](x))
 
         return self.outputs
 
@@ -174,25 +171,22 @@ class PoseDecoder(nn.Module):
             num_frames_to_predict_for = num_input_features - 1
         self.num_frames_to_predict_for = num_frames_to_predict_for
 
-        self.convs = OrderedDict()
-        self.convs[("squeeze")] = nn.Conv2d(self.num_ch_enc[-1], 256, 1)
-        self.convs[("pose", 0)] = nn.Conv2d(num_input_features * 256, 256, 3, stride, 1)
-        self.convs[("pose", 1)] = nn.Conv2d(256, 256, 3, stride, 1)
-        self.convs[("pose", 2)] = nn.Conv2d(256, 6 * num_frames_to_predict_for, 1)
+        self.add_module(str(("squeeze")), nn.Conv2d(self.num_ch_enc[-1], 256, 1))
+        self.add_module(str(("pose", 0)), nn.Conv2d(num_input_features * 256, 256, 3, stride, 1))
+        self.add_module(str(("pose", 1)), nn.Conv2d(256, 256, 3, stride, 1))
+        self.add_module(str(("pose", 2)), nn.Conv2d(256, 6 * num_frames_to_predict_for, 1))
 
         self.relu = nn.ReLU()
-
-        self.net = nn.ModuleList(list(self.convs.values()))
 
     def forward(self, input_features):
         last_features = [f[-1] for f in input_features]
 
-        cat_features = [self.relu(self.convs["squeeze"](f)) for f in last_features]
+        cat_features = [self.relu(self._modules[str(("squeeze"))](f)) for f in last_features]
         cat_features = torch.cat(cat_features, 1)
 
         out = cat_features
         for i in range(3):
-            out = self.convs[("pose", i)](out)
+            out = self._modules[str(("pose", i))](out)
             if i != 2:
                 out = self.relu(out)
 
@@ -295,10 +289,9 @@ class ResnetEncoder(nn.Module):
 class BackprojectDepth(nn.Module):
     """Layer to transform a depth image into a point cloud
     """
-    def __init__(self, batch_size, height, width):
+    def __init__(self, height, width):
         super(BackprojectDepth, self).__init__()
 
-        self.batch_size = batch_size
         self.height = height
         self.width = width
 
@@ -307,18 +300,17 @@ class BackprojectDepth(nn.Module):
         self.id_coords = nn.Parameter(torch.from_numpy(self.id_coords),
                                       requires_grad=False)
 
-        self.ones = nn.Parameter(torch.ones(self.batch_size, 1, self.height * self.width),
-                                 requires_grad=False)
-
-        self.pix_coords = torch.unsqueeze(torch.stack(
-            [self.id_coords[0].view(-1), self.id_coords[1].view(-1)], 0), 0)
-        self.pix_coords = self.pix_coords.repeat(batch_size, 1, 1)
-        self.pix_coords = nn.Parameter(torch.cat([self.pix_coords, self.ones], 1),
-                                       requires_grad=False)
 
     def forward(self, depth, inv_K):
-        cam_points = torch.matmul(inv_K[:, :3, :3], self.pix_coords)
-        cam_points = depth.view(self.batch_size, 1, -1) * cam_points
-        cam_points = torch.cat([cam_points, self.ones], 1)
+
+        ones = torch.ones(len(inv_K), 1, self.height * self.width)
+
+        pix_coords = torch.unsqueeze(torch.stack([self.id_coords[0].view(-1), self.id_coords[1].view(-1)], 0), 0)
+        pix_coords = pix_coords.repeat(len(inv_K), 1, 1)
+        pix_coords = torch.cat([pix_coords, ones], 1)
+
+        cam_points = torch.matmul(inv_K[:, :3, :3], pix_coords.to(inv_K.device))
+        cam_points = depth.view(len(inv_K), 1, -1) * cam_points
+        cam_points = torch.cat([cam_points, ones.to(cam_points.device)], 1)
 
         return cam_points

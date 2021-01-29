@@ -24,6 +24,7 @@ def init_args(parser):
 def core_args(parser):
     
     parser.add_argument("--model", type=str, choices=Base.options(Model).keys(), required=True)
+    parser.add_argument("--model_wrappers", type=str, choices=Base.options(Model.__wrapper__).keys(), nargs='*', default=None)
     parser.add_argument("--dataset", type=str, choices=Base.options(Dataset).keys(), required=True)
     parser.add_argument("--dataset_wrappers", type=str, choices=Base.options(Dataset.__wrapper__).keys(), nargs='*', default=None)
     parser.add_argument("--loss", type=str, choices=Base.options(Loss).keys(), required=True)
@@ -51,25 +52,8 @@ def init(args, device):
     model_state_dict = None
 
     if args.load:
-        print("=> loading checkpoint '{}'".format(args.load))
-
-        checkpoint = torch.load(args.load, map_location=device)
-
-        if 'args' in checkpoint and not args.dont_load_args:
-            for arg in checkpoint['args']:
-                if f'--{arg}' not in sys.argv:
-                    value = checkpoint['args'][arg]
-                    if value:
-                        sys.argv.append(f'--{arg}')
-                        if not isinstance(value, list):
-                            sys.argv.append(f'{value}')
-                        else:
-                            for _value in value:
-                                sys.argv.append(f'{_value}')
-
-                        print(f"===> {arg} : {value}")
-
-        model_state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
+        
+        model_state_dict, checkpoint = util.load(args, device)
 
         if 'optimizer' in checkpoint:
             optimizer_state_dict = checkpoint['optimizer']
@@ -80,6 +64,7 @@ def init(args, device):
 
         print("=> loaded checkpoint '{}'"
                 .format(args.load))
+
     return model_state_dict, optimizer_state_dict, scheduler_state_dict, training_tracker
 
 def get_dataloaders(dataset, args):
@@ -89,31 +74,32 @@ def get_dataloaders(dataset, args):
 
     if dataset.dataset_type == Dataset.DatasetType.train:
             train_loader = dataset.dataloader()
-            val_loader = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers, dataset_type=Dataset.DatasetType.validate)[0].dataloader()
+            val_loader = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers, dataset_type=Dataset.DatasetType.validate, device=dataset.device)[0].dataloader()
     else:
         val_loader = dataset.dataloader()
 
     return train_loader, val_loader
 
 
+
 def main():
 
     parser = argparse.ArgumentParser(allow_abbrev=False)
-
+    
     init_args(parser)
 
-    args, _ = parser.parse_known_args()
+    _args, _ = parser.parse_known_args()
 
     device = torch.device("cpu")
-    if args.cuda:
+    if _args.cuda:
         if torch.cuda.device_count() == 0:
             print("=> no cuda devices available")
         elif not torch.cuda.is_available():
             print("=> cuda is not available")
         else: 
-            device = torch.device("cuda")
+            device = torch.device("cuda:0")
     
-    model_state_dict, optimizer_state_dict, scheduler_state_dict, training_tracker = init(args, device)
+    model_state_dict, optimizer_state_dict, scheduler_state_dict, training_tracker = init(_args, device)
 
     parser = argparse.ArgumentParser(allow_abbrev=False)
 
@@ -122,17 +108,18 @@ def main():
     args, _ = parser.parse_known_args()
     kwargs = vars(args)
 
-    dataset, _kwargs = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers)
+    dataset, _kwargs = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers, device=device)
     kwargs.update(_kwargs)
 
     train_loader, val_loader = get_dataloaders(dataset, args)
 
-    model, _kwargs = Base.get_instance(args.model, parent=Model, dataset=dataset)
-    model = model.to(device)
+    model, _kwargs = Base.get_instance(args.model, parent=Model, wrappers=args.model_wrappers, dataset=dataset)
     kwargs.update(_kwargs)
 
     if model_state_dict:
         model.load_state_dict(model_state_dict)
+
+    model = model.to(device)
 
     optimizer, _kwargs = Base.get_instance(args.optimizer, parent=Optimizer, params=model.parameters())
     kwargs.update(_kwargs)
@@ -149,7 +136,7 @@ def main():
         if scheduler_state_dict:
             scheduler.load_state_dict(scheduler_state_dict)
 
-    criterion, _kwargs = Base.get_instance(args.loss, parent=Loss, dataset=dataset)
+    criterion, _kwargs = Base.get_instance(args.loss, parent=Loss, model=model)
     criterion = criterion.to(device)
     kwargs.update(_kwargs)
 
@@ -166,7 +153,7 @@ def main():
               range(args.start_epoch, args.epochs), device,
               args.print_freq, args.save_freq, args.best_loss, training_tracker, kwargs)
 
-def train_epoch(model, criterion, train_loader, optimizer, epoch, device, print_freq):
+def train_epoch(model, criterion, loader, optimizer, epoch, device, print_freq):
     model.train()
 
     batch_time = util.AverageMeter('Time', ':6.3f')
@@ -174,20 +161,23 @@ def train_epoch(model, criterion, train_loader, optimizer, epoch, device, print_
     losses = util.AverageMeter('Loss', ':.4e')
 
     progress = util.ProgressMeter(
-        len(train_loader),
+        len(loader),
         [batch_time, data_time, losses],
         prefix="Epoch: [{}]".format(epoch))
 
     end = time.time()
-    for i, (data, targets) in enumerate(train_loader):
+    for i, (data, targets) in enumerate(loader):
+        
         data_time.update(time.time() - end)
         
-        data, targets = data.to(device), targets.to(device)
+        # to_device(data, device)
+        # to_device(targets, device)
 
         optimizer.zero_grad()
+
         output = model(data)
         loss = criterion(output, targets)
-        losses.update(loss.item(), data.size(0))
+        losses.update(loss.item(), loader.batch_size)
         loss.backward()
         optimizer.step()
 
@@ -203,11 +193,11 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
 
     for epoch in epoch_range:
 
-        if scheduler:
-            scheduler.step()
-
         train_loss = train_epoch(model, criterion, train_loader,
                                  optimizer, epoch, device, print_freq)
+
+        if scheduler:
+            scheduler.step()
 
         training_tracker['train'].append((epoch, train_loss))
 
@@ -236,29 +226,29 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
 
             print("=> model saved")
 
-def validate(val_loader, model, criterion, device, print_freq, save_results=False):
+def validate(loader, model, criterion, device, print_freq, save_results=False):
     model.eval()
 
     batch_time = util.AverageMeter('Time', ':6.3f')
     losses = util.AverageMeter('Loss', ':.4e')
 
     progress =  util.ProgressMeter(
-        len(val_loader),
+        len(loader),
         [batch_time, losses],
         prefix='Validation: ')
 
     results = []
-    acc = []
 
     with torch.no_grad():
         end = time.time()
-        for i, (data, targets) in enumerate(val_loader):
-            data, targets = data.to(device), targets.to(device)
+        for i, (data, targets) in enumerate(loader):
+            
+            # to_device(data, device)
+            # to_device(targets, device)
 
             output = model(data)
-            acc.append((targets.cpu().numpy() == output.cpu().numpy().argmax(axis=1)).sum() / len(targets))
             loss = criterion(output, targets)
-            losses.update(loss.item(), data.size(0))
+            losses.update(loss.item(), loader.batch_size)
 
             batch_time.update(time.time() - end)
             end = time.time()
@@ -267,7 +257,6 @@ def validate(val_loader, model, criterion, device, print_freq, save_results=Fals
                 progress.display(i)
             if save_results:
                 results.extend([(i * len(data) + ii, output[ii].cpu().numpy()) for ii in range(len(data))])
-    print(sum(acc) / len(acc))
 
     return losses.avg, results
 

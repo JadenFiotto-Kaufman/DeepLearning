@@ -11,7 +11,7 @@ class Adam(Optimizer, _Adam):
     def args(parser):
         parser.add_argument("--lr", type=float, default=.0003,
                         help="learning rate for optimizer")
-        parser.add_argument("--weight_decay", type=float, default=1e-4,
+        parser.add_argument("--weight_decay", type=float, default=.0,
                         help="weight decay for optimizer ")
 
         super(Adam,Adam).args(parser)
@@ -29,7 +29,7 @@ class RMSprop(Optimizer, _RMSprop):
                         help="learning rate for optimizer")
         parser.add_argument("--momentum", type=float, default=.0,
                         help="momentum for optimizer")
-        parser.add_argument("--weight_decay", type=float, default=1e-4,
+        parser.add_argument("--weight_decay", type=float, default=.0,
                         help="weight decay for optimizer ")
 
         super(RMSprop,RMSprop).args(parser)

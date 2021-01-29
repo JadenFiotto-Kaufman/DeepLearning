@@ -38,28 +38,15 @@ class SSIM(nn.Module):
 
 class DepthEstimationLoss(Loss):
 
-    def __init__(self, no_ssim, disable_automasking, avg_reprojection, **kwargs):
+    def __init__(self, no_ssim, disable_automasking, avg_reprojection, disparity_smoothness,**kwargs):
         super().__init__(**kwargs)
 
         self.disable_automasking = disable_automasking
         self.avg_reprojection = avg_reprojection
+        self.disparity_smoothness = disparity_smoothness
 
         self.ssim = SSIM() if not no_ssim  else None
             
-
-    @staticmethod
-    def args(parser):
-        parser.add_argument("--disable_automasking",
-                                 help="if set, doesn't do auto-masking",
-                                 action="store_true")
-        parser.add_argument("--no_ssim",
-                                 help="if set, disables ssim in the loss",
-                                 action="store_true")
-        parser.add_argument("--avg_reprojection",
-                                 help="if set, uses average reprojection loss",
-                                 action="store_true")
-
-        super(DepthEstimationLoss, DepthEstimationLoss).args(parser)
 
     def compute_reprojection_loss(self, pred, target):
         """Computes reprojection loss between a batch of predicted and target images
@@ -109,7 +96,7 @@ class DepthEstimationLoss(Loss):
             color = inputs[("color", 0, scale)]
             target = inputs[("color", 0, source_scale)]
 
-            for frame_id in self.model.frame_ids[1:]:
+            for frame_id in self.model.dataset.frame_ids[1:]:
                 pred = outputs[("color", frame_id, scale)]
                 reprojection_losses.append(self.compute_reprojection_loss(pred, target))
 
@@ -117,7 +104,7 @@ class DepthEstimationLoss(Loss):
 
             if not self.disable_automasking:
                 identity_reprojection_losses = []
-                for frame_id in self.model.frame_ids[1:]:
+                for frame_id in self.model.dataset.frame_ids[1:]:
                     pred = inputs[("color", frame_id, source_scale)]
                     identity_reprojection_losses.append(
                         self.compute_reprojection_loss(pred, target))
@@ -133,15 +120,15 @@ class DepthEstimationLoss(Loss):
             elif self.model.predictive_mask:
                 # use the predicted mask
                 mask = outputs["predictive_mask"]["disp", scale]
-                if not self.opt.v1_multiscale:
+                if not self.model.v1_multiscale:
                     mask = F.interpolate(
-                        mask, [self.opt.height, self.opt.width],
+                        mask, [self.model.dataset.height, self.model.dataset.width],
                         mode="bilinear", align_corners=False)
 
                 reprojection_losses *= mask
 
                 # add a loss pushing mask to 1 (using nn.BCELoss for stability)
-                weighting_loss = 0.2 * nn.BCELoss()(mask, torch.ones(mask.shape).cuda())
+                weighting_loss = 0.2 * nn.BCELoss()(mask, torch.ones(mask.shape))
                 loss += weighting_loss.mean()
 
             if self.avg_reprojection:
@@ -152,7 +139,7 @@ class DepthEstimationLoss(Loss):
             if not self.disable_automasking:
                 # add random numbers to break ties
                 identity_reprojection_loss += torch.randn(
-                    identity_reprojection_loss.shape).cuda() * 0.00001
+                    identity_reprojection_loss.shape).to(identity_reprojection_loss.device) * 0.00001
 
                 combined = torch.cat((identity_reprojection_loss, reprojection_loss), dim=1)
             else:
@@ -173,10 +160,27 @@ class DepthEstimationLoss(Loss):
             norm_disp = disp / (mean_disp + 1e-7)
             smooth_loss = self.get_smooth_loss(norm_disp, color)
 
-            loss += self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
+            loss += self.disparity_smoothness * smooth_loss / (2 ** scale)
             total_loss += loss
             losses["loss/{}".format(scale)] = loss
 
-        total_loss /= self.num_scales
-        losses["loss"] = total_loss
-        return losses
+        total_loss /= self.model.num_scales
+        return total_loss
+
+    @staticmethod
+    def args(parser):
+        parser.add_argument("--disable_automasking",
+                                 help="if set, doesn't do auto-masking",
+                                 action="store_true")
+        parser.add_argument("--no_ssim",
+                                 help="if set, disables ssim in the loss",
+                                 action="store_true")
+        parser.add_argument("--avg_reprojection",
+                                 help="if set, uses average reprojection loss",
+                                 action="store_true")
+        parser.add_argument("--disparity_smoothness",
+                                 type=float,
+                                 help="disparity smoothness weight",
+                                 default=1e-3)
+
+        super(DepthEstimationLoss, DepthEstimationLoss).args(parser)

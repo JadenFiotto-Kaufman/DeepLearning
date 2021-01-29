@@ -25,7 +25,7 @@ class _MonoDataset(Dataset):
         filenames
         height
         width
-        frame_idxs
+        frame_ids
         num_scales
         is_train
         img_ext
@@ -38,6 +38,7 @@ class _MonoDataset(Dataset):
                  split,
                  image_resize,
                  frame_ids,
+                 use_stereo,
                  scales,
                  img_ext='.jpg',
                  **kwargs):
@@ -52,10 +53,17 @@ class _MonoDataset(Dataset):
         self.data_path = data_path
         self.height = height
         self.width = width
-        self.num_scales = scales
+        self.scales = scales
+        self.use_stereo = use_stereo
+        self.num_scales = len(scales)
         self.interp = Image.ANTIALIAS
 
-        self.frame_idxs = frame_ids
+        assert frame_ids[0] == 0, "frame_ids must start with 0"
+
+        if use_stereo:
+            frame_ids.append("s")
+
+        self.frame_ids = frame_ids
 
         self.is_train = self.dataset_type is Dataset.DatasetType.train
         self.img_ext = img_ext
@@ -84,7 +92,7 @@ class _MonoDataset(Dataset):
             self.resize[i] = transforms.Resize((self.height // s, self.width // s),
                                                interpolation=self.interp)
 
-        fpath = os.path.join(os.path.dirname(__file__), "splits", split, "{}_files.txt")
+        fpath = os.path.join(split, "{}_files.txt")
         filenames = readlines(fpath.format("train")) if self.is_train else readlines(fpath.format("val"))
 
         self.data = {}
@@ -167,7 +175,7 @@ class _MonoDataset(Dataset):
         side = line[3]
 
 
-        for i in self.frame_idxs:
+        for i in self.frame_ids:
             if i == "s":
                 other_side = {"r": "l", "l": "r"}[side]
                 inputs[("color", i, -1)] = self.get_color(key, frame_index, other_side, do_flip)
@@ -194,7 +202,7 @@ class _MonoDataset(Dataset):
 
         self.preprocess(inputs, color_aug)
 
-        for i in self.frame_idxs:
+        for i in self.frame_ids:
             del inputs[("color", i, -1)]
             del inputs[("color_aug", i, -1)]
 
@@ -203,7 +211,7 @@ class _MonoDataset(Dataset):
             inputs["depth_gt"] = np.expand_dims(depth_gt, 0)
             inputs["depth_gt"] = torch.from_numpy(inputs["depth_gt"].astype(np.float32))
 
-        if "s" in self.frame_idxs:
+        if "s" in self.frame_ids:
             stereo_T = np.eye(4, dtype=np.float32)
             baseline_sign = -1 if do_flip else 1
             side_sign = -1 if side == "l" else 1
@@ -211,7 +219,7 @@ class _MonoDataset(Dataset):
 
             inputs["stereo_T"] = torch.from_numpy(stereo_T)
 
-        return inputs
+        return inputs, torch.empty(1)
 
     def get_color(self, folder, frame_index, side, do_flip):
         raise NotImplementedError
@@ -234,6 +242,9 @@ class _MonoDataset(Dataset):
                                  type=int,
                                  help="frames to load",
                                  default=[0, -1, 1])
+        parser.add_argument("--use_stereo",
+                                 help="if set, uses stereo pair for training",
+                                 action="store_true")
         parser.add_argument("--scales",
                                  nargs="+",
                                  type=int,
@@ -241,8 +252,6 @@ class _MonoDataset(Dataset):
                                  default=[0, 1, 2, 3])
         parser.add_argument("--split",
                                  type=str,
-                                 help="which training split to use",
-                                 choices=["huga"],
-                                 default="huga")
+                                 help="path to train/val split")
 
         super(_MonoDataset,_MonoDataset).args(parser)

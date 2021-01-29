@@ -16,9 +16,6 @@ class TrainValSplit(Dataset.__wrapper__):
     def __len__(self):
         return len(self._indicies)
 
-    def __getitem__(self, index):
-        return self._obj.__getitem__(self._indicies[index])
-
     @staticmethod
     def args(parser):
         parser.add_argument("--val_percent",  default=.15, type=float)

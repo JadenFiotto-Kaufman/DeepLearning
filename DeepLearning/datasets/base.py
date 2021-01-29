@@ -19,13 +19,14 @@ class Dataset(Base, _Dataset):
             return self.name
         
 
-    def __init__(self, dataset_type, batch_size, num_workers, cuda, **kwargs):
+    def __init__(self, dataset_type, batch_size, num_workers, drop_last, device, **kwargs):
         Base.__init__(self, **kwargs)
 
         self.dataset_type = Dataset.DatasetType[dataset_type] if isinstance(dataset_type, str) else dataset_type
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.cuda = cuda
+        self.device = device
+        self.drop_last = drop_last
 
         return kwargs
 
@@ -35,7 +36,8 @@ class Dataset(Base, _Dataset):
             batch_size=self.batch_size,
             shuffle= self.dataset_type is Dataset.DatasetType.train,
             num_workers=self.num_workers,
-            pin_memory=self.cuda
+            pin_memory='cuda' in self.device.type,
+            drop_last=self.drop_last
         )
 
     @staticmethod
@@ -44,7 +46,7 @@ class Dataset(Base, _Dataset):
         parser.add_argument("--batch_size", type=int, default=256,
                         help="batch size(default: 256)")
         parser.add_argument("--num_workers", type=int, default=2)
-        parser.add_argument("--cuda", nargs='?', default=False, const=True, type=bool)
+        parser.add_argument("--drop_last", nargs='?', default=False, const=True, type=bool)
 
         super(Dataset,Dataset).args(parser)
 
@@ -65,10 +67,5 @@ class _DatasetWrapper(Base.__wrapper__, Dataset):
         def __getattr__(self, name):
             return getattr(self._obj, name)
 
-        def __len__(self):
-            return len(self._obj)
-
-        def __getitem__(self, index):
-            return self._obj.__getitem__(index)
 
 Dataset.__wrapper__ = _DatasetWrapper

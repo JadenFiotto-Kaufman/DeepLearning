@@ -3,10 +3,9 @@ from DeepLearning.models.base import Model
 import torch
 import torch.nn.functional as F
 
-from .monodepth.networks import (BackprojectDepth, DepthDecoder, PoseCNN,
+from ._monodepth.networks import (BackprojectDepth, DepthDecoder, PoseCNN,
                                  PoseDecoder, Project3D, ResnetEncoder)
-from .monodepth.util import disp_to_depth, transformation_from_parameters
-
+from ._monodepth.util import disp_to_depth, transformation_from_parameters
 
 class DepthEstimator(Model):
     
@@ -14,8 +13,6 @@ class DepthEstimator(Model):
     def __init__(self, 
         num_layers, 
         weights_init, 
-        use_stereo, 
-        frame_ids, 
         pose_model_input, 
         pose_model_type,
         predictive_mask, 
@@ -33,27 +30,18 @@ class DepthEstimator(Model):
         self.disable_automasking = disable_automasking
 
         self.num_scales = len(self.dataset.scales)
-        self.num_input_frames = len(frame_ids)
+        self.num_input_frames = len(self.dataset.frame_ids)
         self.num_pose_frames = 2 if pose_model_input == "pairs" else self.num_input_frames
 
-        assert frame_ids[0] == 0, "frame_ids must start with 0"
 
-        if use_stereo:
-            frame_ids.append("s")
+        self.use_pose_net = not (self.dataset.use_stereo and self.dataset.frame_ids == [0])
 
-        self.frame_ids = frame_ids
-
-        self.use_pose_net = not (use_stereo and frame_ids == [0])
-
-        self.parameters_to_train = []
 
         self.encoder = ResnetEncoder(
             num_layers, weights_init == "pretrained")
-        self.parameters_to_train += list(self.encoder.parameters())
 
         self.depth = DepthDecoder(
             self.encoder.num_ch_enc, self.dataset.scales)
-        self.parameters_to_train += list(self.depth.parameters())
 
         self.pose_model_type = pose_model_type
 
@@ -64,7 +52,6 @@ class DepthEstimator(Model):
                     weights_init == "pretrained",
                     num_input_images=self.num_pose_frames)
 
-                self.parameters_to_train += list(self.pose_encoder.parameters())
 
                 self.pose = PoseDecoder(
                    self.pose_encoder.num_ch_enc,
@@ -79,18 +66,22 @@ class DepthEstimator(Model):
                 self.pose = PoseCNN(
                     self.num_input_frames if pose_model_input == "all" else 2)
 
-            self.parameters_to_train += list(self.pose.parameters())
 
         
         self.backproject_depth = {}
         self.project_3d = {}
+        
+        # batch_size = self.dataset.batch_size
+        # if hasattr(self, '_isparallel') and self._isparallel:
+        #     batch_size = batch_size // torch.cuda.device_count()
+
         for scale in self.dataset.scales:
             h = self.dataset.height // (2 ** scale)
             w = self.dataset.width // (2 ** scale)
 
-            self.backproject_depth[scale] = BackprojectDepth(self.dataset.batch_size, h, w)
+            self.backproject_depth[scale] = BackprojectDepth(h, w)
 
-            self.project_3d[scale] = Project3D(self.dataset.batch_size, h, w)
+            self.project_3d[scale] = Project3D(h, w)
 
         self.predictive_mask = predictive_mask
 
@@ -99,8 +90,7 @@ class DepthEstimator(Model):
 
             self.predictive_mask = DepthDecoder(
                 self.encoder.num_ch_enc, self.dataset.scales,
-                num_output_channels=(len(frame_ids) - 1))
-            self.parameters_to_train += list(self.predictive_mask.parameters())
+                num_output_channels=(len(self.dataset.frame_ids) - 1))
 
     def predict_poses(self, inputs, features):
         """Predict poses between input frames for monocular sequences.
@@ -112,11 +102,11 @@ class DepthEstimator(Model):
 
             # select what features the pose network takes as input
             if self.pose_model_type == "shared":
-                pose_feats = {f_i: features[f_i] for f_i in self.frame_ids}
+                pose_feats = {f_i: features[f_i] for f_i in self.dataset.frame_ids}
             else:
-                pose_feats = {f_i: inputs["color_aug", f_i, 0] for f_i in self.frame_ids}
+                pose_feats = {f_i: inputs["color_aug", f_i, 0] for f_i in self.dataset.frame_ids}
 
-            for f_i in self.frame_ids[1:]:
+            for f_i in self.dataset.frame_ids[1:]:
                 if f_i != "s":
                     # To maintain ordering we always pass frames in temporal order
                     if f_i < 0:
@@ -141,17 +131,17 @@ class DepthEstimator(Model):
             # Here we input all frames to the pose net (and predict all poses) together
             if self.pose_model_type in ["separate_resnet", "posecnn"]:
                 pose_inputs = torch.cat(
-                    [inputs[("color_aug", i, 0)] for i in self.frame_ids if i != "s"], 1)
+                    [inputs[("color_aug", i, 0)] for i in self.dataset.frame_ids if i != "s"], 1)
 
                 if self.pose_model_type == "separate_resnet":
                     pose_inputs = [self.pose_encoder(pose_inputs)]
 
             elif self.pose_model_type == "shared":
-                pose_inputs = [features[i] for i in self.frame_ids if i != "s"]
+                pose_inputs = [features[i] for i in self.dataset.frame_ids if i != "s"]
 
             axisangle, translation = self.pose(pose_inputs)
 
-            for i, f_i in enumerate(self.frame_ids[1:]):
+            for i, f_i in enumerate(self.dataset.frame_ids[1:]):
                 if f_i != "s":
                     outputs[("axisangle", 0, f_i)] = axisangle
                     outputs[("translation", 0, f_i)] = translation
@@ -164,7 +154,7 @@ class DepthEstimator(Model):
         """Generate the warped (reprojected) color images for a minibatch.
         Generated images are saved into the `outputs` dictionary.
         """
-        for scale in self.scales:
+        for scale in self.dataset.scales:
             disp = outputs[("disp", scale)]
             if self.v1_multiscale:
                 source_scale = scale
@@ -177,7 +167,7 @@ class DepthEstimator(Model):
 
             outputs[("depth", 0, scale)] = depth
 
-            for i, frame_id in enumerate(self.frame_ids[1:]):
+            for i, frame_id in enumerate(self.dataset.frame_ids[1:]):
 
                 if frame_id == "s":
                     T = inputs["stereo_T"]
@@ -217,12 +207,12 @@ class DepthEstimator(Model):
         if self.pose_model_type == "shared":
             # If we are using a shared encoder for both depth and pose (as advocated
             # in monodepthv1), then all images are fed separately through the depth encoder.
-            all_color_aug = torch.cat([inputs[("color_aug", i, 0)] for i in self.frame_ids])
+            all_color_aug = torch.cat([inputs[("color_aug", i, 0)] for i in self.dataset.frame_ids])
             all_features = self.encoder(all_color_aug)
             all_features = [torch.split(f, len(inputs)) for f in all_features]
 
             features = {}
-            for i, k in enumerate(self.frame_ids):
+            for i, k in enumerate(self.dataset.frame_ids):
                 features[k] = [f[i] for f in all_features]
 
             outputs = self.depth(features[0])
@@ -254,14 +244,6 @@ class DepthEstimator(Model):
                                  help="pretrained or scratch",
                                  default="pretrained",
                                  choices=["pretrained", "scratch"])
-        parser.add_argument("--use_stereo",
-                                 help="if set, uses stereo pair for training",
-                                 action="store_true")
-        parser.add_argument("--frame_ids",
-                                 nargs="+",
-                                 type=int,
-                                 help="frames to load",
-                                 default=[0, -1, 1])
         parser.add_argument("--pose_model_input",
                                  type=str,
                                  help="how many images the pose network gets",
