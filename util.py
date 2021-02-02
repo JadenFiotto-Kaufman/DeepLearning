@@ -97,6 +97,18 @@ def save_training_tracker(path, train_loss, val_loss):
     plt.savefig(path)
     plt.clf()
 
+def get_device(device):
+
+    if 'cuda' in str(device):
+        if torch.cuda.device_count() == 0:
+            print("=> no cuda devices available")
+        elif not torch.cuda.is_available():
+            print("=> cuda is not available")
+        else: 
+            return torch.device(device)
+
+    return torch.device("cpu")
+
 def to_device(data, device):
 
     if isinstance(data, torch.Tensor):
@@ -115,13 +127,13 @@ def to_device(data, device):
 
     return data
 
-def load(args, device):
+def load(path, device, dont_load_args=False):
 
-    print("=> loading checkpoint '{}'".format(args.load))
+    print("=> loading checkpoint '{}'".format(path))
 
-    checkpoint = torch.load(args.load, map_location=device)
+    checkpoint = torch.load(path, map_location=device)
 
-    if 'args' in checkpoint and not args.dont_load_args:
+    if 'args' in checkpoint and not dont_load_args:
         for arg in checkpoint['args']:
             if f'--{arg}' not in sys.argv:
                 value = checkpoint['args'][arg]
@@ -138,6 +150,6 @@ def load(args, device):
     model_state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
 
     print("=> loaded checkpoint '{}'"
-            .format(args.load))
+            .format(path))
 
     return model_state_dict, checkpoint

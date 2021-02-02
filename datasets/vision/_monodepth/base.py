@@ -36,7 +36,7 @@ class _MonoDataset(Dataset):
     def __init__(self,
                  data_path,
                  split,
-                 image_resize,
+                 image_size,
                  frame_ids,
                  use_stereo,
                  scales,
@@ -45,14 +45,15 @@ class _MonoDataset(Dataset):
 
         super().__init__(**kwargs)
 
-        height, width = (image_resize[0], image_resize[0]) if len(image_resize) == 1 else image_resize
+        height, width = (image_size[0], image_size[0]) if len(image_size) == 1 else image_size
 
         assert height % 32 == 0, "'height' must be a multiple of 32"
         assert width % 32 == 0, "'width' must be a multiple of 32"
 
-        self.data_path = data_path
         self.height = height
         self.width = width
+
+        self.data_path = data_path
         self.scales = scales
         self.use_stereo = use_stereo
         self.num_scales = len(scales)
@@ -236,7 +237,7 @@ class _MonoDataset(Dataset):
                                  type=str,
                                  help="path to the training data",
                                  required=True)
-        parser.add_argument("--image_resize", nargs='+', type=int, required=True)
+        parser.add_argument("--image_size", nargs='+', type=int, required=True)
         parser.add_argument("--frame_ids",
                                  nargs="+",
                                  type=int,

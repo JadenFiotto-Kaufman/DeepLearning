@@ -11,6 +11,6 @@ class ImageFolder(_VisionDataset, _ImageFolder):
 
     @staticmethod
     def args(parser):    
-        parser.add_argument("--root", type=str, required=True)
+        parser.add_argument("--root", type=str)
 
         super(ImageFolder,ImageFolder).args(parser)

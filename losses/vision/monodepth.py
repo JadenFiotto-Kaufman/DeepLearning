@@ -38,12 +38,43 @@ class SSIM(nn.Module):
 
 class DepthEstimationLoss(Loss):
 
-    def __init__(self, no_ssim, disable_automasking, avg_reprojection, disparity_smoothness,**kwargs):
+    def __init__(self,
+        no_ssim,
+        disable_automasking,
+        avg_reprojection,
+        disparity_smoothness,
+        scales,
+        v1_multiscale,
+        image_resize,
+        frame_ids,
+        use_stereo,
+        predictive_mask,
+        **kwargs):
         super().__init__(**kwargs)
+
+        height, width = (image_resize[0], image_resize[0]) if len(image_resize) == 1 else image_resize
+
+        assert height % 32 == 0, "'height' must be a multiple of 32"
+        assert width % 32 == 0, "'width' must be a multiple of 32"
+
+        self.height = height
+        self.width = width
+
+        assert frame_ids[0] == 0, "frame_ids must start with 0"
+
+        if use_stereo:
+            frame_ids.append("s")
+
+        self.frame_ids = frame_ids
 
         self.disable_automasking = disable_automasking
         self.avg_reprojection = avg_reprojection
         self.disparity_smoothness = disparity_smoothness
+        self.scales = scales
+        self.v1_multiscale = v1_multiscale
+        self.predictive_mask = predictive_mask
+
+        self.num_scales = len(self.scales)
 
         self.ssim = SSIM() if not no_ssim  else None
             
@@ -83,11 +114,11 @@ class DepthEstimationLoss(Loss):
         losses = {}
         total_loss = 0
 
-        for scale in self.model.dataset.scales:
+        for scale in self.scales:
             loss = 0
             reprojection_losses = []
 
-            if self.model.v1_multiscale:
+            if self.v1_multiscale:
                 source_scale = scale
             else:
                 source_scale = 0
@@ -96,7 +127,7 @@ class DepthEstimationLoss(Loss):
             color = inputs[("color", 0, scale)]
             target = inputs[("color", 0, source_scale)]
 
-            for frame_id in self.model.dataset.frame_ids[1:]:
+            for frame_id in self.frame_ids[1:]:
                 pred = outputs[("color", frame_id, scale)]
                 reprojection_losses.append(self.compute_reprojection_loss(pred, target))
 
@@ -104,7 +135,7 @@ class DepthEstimationLoss(Loss):
 
             if not self.disable_automasking:
                 identity_reprojection_losses = []
-                for frame_id in self.model.dataset.frame_ids[1:]:
+                for frame_id in self.frame_ids[1:]:
                     pred = inputs[("color", frame_id, source_scale)]
                     identity_reprojection_losses.append(
                         self.compute_reprojection_loss(pred, target))
@@ -117,12 +148,12 @@ class DepthEstimationLoss(Loss):
                     # save both images, and do min all at once below
                     identity_reprojection_loss = identity_reprojection_losses
 
-            elif self.model.predictive_mask:
+            elif self.predictive_mask:
                 # use the predicted mask
                 mask = outputs["predictive_mask"]["disp", scale]
-                if not self.model.v1_multiscale:
+                if not self.v1_multiscale:
                     mask = F.interpolate(
-                        mask, [self.model.dataset.height, self.model.dataset.width],
+                        mask, [self.height, self.width],
                         mode="bilinear", align_corners=False)
 
                 reprojection_losses *= mask
@@ -164,7 +195,7 @@ class DepthEstimationLoss(Loss):
             total_loss += loss
             losses["loss/{}".format(scale)] = loss
 
-        total_loss /= self.model.num_scales
+        total_loss /= self.num_scales
         return total_loss
 
     @staticmethod
@@ -182,5 +213,26 @@ class DepthEstimationLoss(Loss):
                                  type=float,
                                  help="disparity smoothness weight",
                                  default=1e-3)
+
+        parser.add_argument("--scales",
+                                 nargs="+",
+                                 type=int,
+                                 help="scales used in the loss",
+                                 default=[0, 1, 2, 3])
+        parser.add_argument("--v1_multiscale",
+                                 help="if set, uses monodepth v1 multiscale",
+                                 action="store_true")
+        parser.add_argument("--image_resize", nargs='+', type=int, required=True)
+        parser.add_argument("--frame_ids",
+                                 nargs="+",
+                                 type=int,
+                                 help="frames to load",
+                                 default=[0, -1, 1])
+        parser.add_argument("--use_stereo",
+                                 help="if set, uses stereo pair for training",
+                                 action="store_true")
+        parser.add_argument("--predictive_mask",
+                                 help="if set, uses a predictive masking scheme as in Zhou et al",
+                                 action="store_true")
 
         super(DepthEstimationLoss, DepthEstimationLoss).args(parser)

@@ -53,7 +53,7 @@ def init(args, device):
 
     if args.load:
         
-        model_state_dict, checkpoint = util.load(args, device)
+        model_state_dict, checkpoint = util.load(args.load, device, dont_load_args=args.dont_load_args)
 
         if 'optimizer' in checkpoint:
             optimizer_state_dict = checkpoint['optimizer']
@@ -90,14 +90,7 @@ def main():
 
     _args, _ = parser.parse_known_args()
 
-    device = torch.device("cpu")
-    if _args.cuda:
-        if torch.cuda.device_count() == 0:
-            print("=> no cuda devices available")
-        elif not torch.cuda.is_available():
-            print("=> cuda is not available")
-        else: 
-            device = torch.device("cuda:0")
+    device = util.get_device('cuda' if _args.cuda else 'cpu')
     
     model_state_dict, optimizer_state_dict, scheduler_state_dict, training_tracker = init(_args, device)
 
@@ -113,7 +106,7 @@ def main():
 
     train_loader, val_loader = get_dataloaders(dataset, args)
 
-    model, _kwargs = Base.get_instance(args.model, parent=Model, wrappers=args.model_wrappers, dataset=dataset)
+    model, _kwargs = Base.get_instance(args.model, parent=Model, wrappers=args.model_wrappers)
     kwargs.update(_kwargs)
 
     if model_state_dict:
@@ -136,7 +129,7 @@ def main():
         if scheduler_state_dict:
             scheduler.load_state_dict(scheduler_state_dict)
 
-    criterion, _kwargs = Base.get_instance(args.loss, parent=Loss, model=model)
+    criterion, _kwargs = Base.get_instance(args.loss, parent=Loss)
     criterion = criterion.to(device)
     kwargs.update(_kwargs)
 

@@ -1,7 +1,8 @@
 from torchvision.transforms import Compose
-from torchvision.transforms import transforms as _transforms
+from torchvision.transforms import transforms as _transforms, functional as TF
 
 from DeepLearning.datasets.base import Dataset
+import DeepLearning.datasets.vision.transforms as custom_transforms
 
 
 class _VisionDataset(Dataset):
@@ -17,10 +18,18 @@ class _VisionDataset(Dataset):
         normalization, 
         image_resize,
         image_center_crop,
+        image_crop,
         transforms = None,
         **kwargs):
 
         kwargs = super().__init__(**kwargs)
+
+        if image_resize:
+            self.image_resize = (image_resize[0], image_resize[0]) if len(image_resize) == 1 else image_resize
+        if image_center_crop:
+            self.image_center_crop = (image_center_crop[0], image_center_crop[0]) if len(image_center_crop) == 1 else image_center_crop
+        if image_crop:
+            self.image_crop = image_crop
 
         transforms = transforms if transforms else []
 
@@ -35,12 +44,13 @@ class _VisionDataset(Dataset):
             if rotate_transform:
                 transforms.insert(0, _transforms.RandomRotation(degrees=rotate_transform, expand=True))
 
+
         if image_resize:
-            image_resize = (image_resize[0], image_resize[0]) if len(image_resize) == 1 else image_resize
-            transforms.append(_transforms.Resize(image_resize))
+            transforms.append(_transforms.Resize(self.image_resize))
+        if image_crop:
+            transforms.append(custom_transforms.Crop(*self.image_crop))
         if image_center_crop:
-            image_center_crop = (image_center_crop[0], image_center_crop[0]) if len(image_center_crop) == 1 else image_center_crop
-            transforms.append(_transforms.CenterCrop(image_center_crop))
+            transforms.append(_transforms.CenterCrop(self.image_center_crop))
         transforms.append(_transforms.ToTensor())
         if normalization:
             if len(normalization) == 6:
@@ -53,8 +63,9 @@ class _VisionDataset(Dataset):
 
     @staticmethod
     def args(parser):
-        parser.add_argument("--image_resize", type=int, nargs='+', required=True)
+        parser.add_argument("--image_resize", type=int, nargs='*', default=None)
         parser.add_argument("--image_center_crop", type=int, default=None, nargs='*')
+        parser.add_argument("--image_crop", type=int, default=None, nargs=4)
 
         parser.add_argument("--normalization", nargs='*', default=None,type=float)
         parser.add_argument("--grayscale_transform", nargs='?', default=None, const=.1, type=float,

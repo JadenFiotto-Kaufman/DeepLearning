@@ -14,19 +14,19 @@ from ._monodepth.base import _MonoDataset
 class _HUGADataset(_MonoDataset):
     """Superclass for different types of KITTI dataset loaders
     """
-    def __init__(self, focal_length, image_size, **kwargs):
+    def __init__(self, focal_length, image_full_size, **kwargs):
         super().__init__(**kwargs)
 
-        image_size = (image_size[0], image_size[0]) if len(image_size) == 1 else image_size
+        image_full_size_height, image_full_size_width = (image_full_size[0], image_full_size[0]) if len(image_full_size) == 1 else image_full_size
 
         # NOTE: Make sure your intrinsics matrix is *normalized* by the original image size    
-        self.K = np.array([[focal_length / image_size[0], 0, 0.5, 0],
-                           [0, focal_length / image_size[1], 0.5, 0],
+        self.K = np.array([[focal_length / self.width, 0, (self.width // 2.0 + (self.width - image_full_size_width)) / self.width, 0],
+                           [0, focal_length / self.height, (self.height // 2.0 + (self.height - image_full_size_height)) / self.height, 0],
                            [0, 0, 1, 0],
                            [0, 0, 0, 1]], dtype=np.float32)
 
         self.focal_length = focal_length
-        self.full_res_shape = image_size
+        self.full_res_shape = image_full_size
         self.side_map = {"2": 2, "3": 3, "l": 2, "r": 3}
 
     def check_depth(self):
@@ -43,7 +43,7 @@ class _HUGADataset(_MonoDataset):
 
     def get_color(self, folder, frame_index, side, do_flip):
         color = self.loader(self.get_image_path(folder, frame_index, side))
-        color = color.crop((0, 0, 256, 224))
+        #color = color.crop((0, 0, 256, 224))
 
         if do_flip:
             color = color.transpose(pil.FLIP_LEFT_RIGHT)
@@ -53,7 +53,7 @@ class _HUGADataset(_MonoDataset):
     @staticmethod
     def args(parser):
         parser.add_argument("--focal_length", type=int, required=True)
-        parser.add_argument("--image_size", nargs='+', type=int, required=True)
+        parser.add_argument("--image_full_size", nargs='+', type=int, required=True)
 
         super(_HUGADataset,_HUGADataset).args(parser)
 
