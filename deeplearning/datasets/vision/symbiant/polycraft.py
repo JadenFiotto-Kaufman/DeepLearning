@@ -3,8 +3,8 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-from DeepLearning.datasets.base import Dataset
-from DeepLearning.datasets.vision.base import _VisionDataset
+from deeplearning.datasets.base import Dataset
+from deeplearning.datasets.vision.base import _VisionDataset
 from PIL import Image
 
 

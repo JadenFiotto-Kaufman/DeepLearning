@@ -52,7 +52,7 @@ class _HUGADataset(_MonoDataset):
 
     @staticmethod
     def args(parser):
-        parser.add_argument("--focal_length", type=int, required=True)
+        parser.add_argument("--focal_length", type=float, required=True)
         parser.add_argument("--image_full_size", nargs='+', type=int, required=True)
 
         super(_HUGADataset,_HUGADataset).args(parser)

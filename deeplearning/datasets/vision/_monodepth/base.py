@@ -11,7 +11,7 @@ import torch
 import torch.utils.data as data
 from PIL import Image
 from torchvision import transforms
-from DeepLearning.datasets.base import Dataset
+from deeplearning.datasets.base import Dataset
 
 from .utils import generate_depth_map, pil_loader, readlines
 
@@ -44,6 +44,8 @@ class _MonoDataset(Dataset):
                  **kwargs):
 
         super().__init__(**kwargs)
+
+        frame_ids = frame_ids.copy()
 
         height, width = (image_size[0], image_size[0]) if len(image_size) == 1 else image_size
 

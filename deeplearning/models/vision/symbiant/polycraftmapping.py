@@ -1,5 +1,5 @@
 import torch
-from DeepLearning.models.base import Model
+from deeplearning.models.base import Model
 
 class Unflatten(torch.nn.Module):
     def __init__(self, *shape):

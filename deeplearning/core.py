@@ -6,13 +6,13 @@ import numpy as np
 import torch
 import argparse
 
-from DeepLearning import util
-from DeepLearning.base import Base
-from DeepLearning.datasets import Dataset
-from DeepLearning.losses import Loss
-from DeepLearning.optimizers import Optimizer
-from DeepLearning.models import Model
-from DeepLearning.schedulers import Scheduler
+from deeplearning import util
+from deeplearning.base import Base
+from deeplearning.datasets import Dataset
+from deeplearning.losses import Loss
+from deeplearning.optimizers import Optimizer
+from deeplearning.models import Model
+from deeplearning.schedulers import Scheduler
 
 
 def init_args(parser):
@@ -83,6 +83,7 @@ def get_dataloaders(dataset, args):
 
 
 def main():
+    util.import_submodules(__package__)
 
     parser = argparse.ArgumentParser(allow_abbrev=False)
     

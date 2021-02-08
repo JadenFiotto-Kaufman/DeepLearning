@@ -7,7 +7,6 @@ import sys
 
 
 def subclasses(cls):
-
     _subclasses = {}
     
     for scls in cls.__subclasses__():

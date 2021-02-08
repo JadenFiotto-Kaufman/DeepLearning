@@ -1,8 +1,8 @@
 from torchvision.transforms import Compose
 from torchvision.transforms import transforms as _transforms, functional as TF
 
-from DeepLearning.datasets.base import Dataset
-import DeepLearning.datasets.vision.transforms as custom_transforms
+from deeplearning.datasets.base import Dataset
+import deeplearning.datasets.vision.transforms as custom_transforms
 
 
 class _VisionDataset(Dataset):

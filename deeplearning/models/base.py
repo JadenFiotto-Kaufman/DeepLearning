@@ -1,5 +1,5 @@
 from torch.nn import Module
-from DeepLearning.base import Base
+from deeplearning.base import Base
 
 class Model(Base,Module):
 

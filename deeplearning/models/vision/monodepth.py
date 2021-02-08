@@ -1,4 +1,4 @@
-from DeepLearning.models.base import Model
+from deeplearning.models.base import Model
 
 import torch
 import torch.nn.functional as F
@@ -25,6 +25,8 @@ class DepthEstimator(Model):
         use_stereo,
         image_resize,
         **kwargs):
+        
+        frame_ids = frame_ids.copy()
 
         super().__init__(**kwargs)
 

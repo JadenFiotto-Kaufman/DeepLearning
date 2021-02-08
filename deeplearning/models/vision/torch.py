@@ -1,7 +1,5 @@
 from .base import _VisionModel
 from torchvision.models import vgg16_bn, vgg16
-import torch
-
 
 class _Wrapper(_VisionModel):
 
@@ -11,9 +9,7 @@ class _Wrapper(_VisionModel):
         self.model = model
     
     def forward(self, x):
-        return self.model(x)
-
-    
+        return self.model(x)  
 
 
 class _VGG(_Wrapper):

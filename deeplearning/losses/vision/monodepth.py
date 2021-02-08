@@ -1,4 +1,4 @@
-from DeepLearning.losses.base import Loss
+from deeplearning.losses.base import Loss
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -51,6 +51,8 @@ class DepthEstimationLoss(Loss):
         predictive_mask,
         **kwargs):
         super().__init__(**kwargs)
+
+        frame_ids = frame_ids.copy()
 
         height, width = (image_resize[0], image_resize[0]) if len(image_resize) == 1 else image_resize
 
