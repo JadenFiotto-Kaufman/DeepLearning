@@ -94,10 +94,6 @@ class DepthEstimator(Model):
         self.backproject_depth = {}
         self.project_3d = {}
         
-        # batch_size = self.dataset.batch_size
-        # if hasattr(self, '_isparallel') and self._isparallel:
-        #     batch_size = batch_size // torch.cuda.device_count()
-
         for scale in self.scales:
             h = self.height // (2 ** scale)
             w = self.width // (2 ** scale)

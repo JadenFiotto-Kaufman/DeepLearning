@@ -12,6 +12,7 @@ from deeplearning.datasets import Dataset
 from deeplearning.losses import Loss
 from deeplearning.optimizers import Optimizer
 from deeplearning.models import Model
+from deeplearning.models.wrappers import DataParallel
 from deeplearning.schedulers import Scheduler
 
 
@@ -58,12 +59,9 @@ def init(args, device):
         if 'optimizer' in checkpoint:
             optimizer_state_dict = checkpoint['optimizer']
         if 'scheduler' in checkpoint:
-            optimizer_state_dict = checkpoint['scheduler']
+            scheduler_state_dict = checkpoint['scheduler']
         if 'tracker' in checkpoint:
             training_tracker = checkpoint['tracker']
-
-        print("=> loaded checkpoint '{}'"
-                .format(args.load))
 
     return model_state_dict, optimizer_state_dict, scheduler_state_dict, training_tracker
 
@@ -111,7 +109,10 @@ def main():
     kwargs.update(_kwargs)
 
     if model_state_dict:
-        model.load_state_dict(model_state_dict)
+        if isinstance(model, DataParallel):
+            model.module.load_state_dict(model_state_dict)
+        else:
+            model.load_state_dict(model_state_dict)
 
     model = model.to(device)
 
@@ -164,8 +165,9 @@ def train_epoch(model, criterion, loader, optimizer, epoch, device, print_freq):
         
         data_time.update(time.time() - end)
         
-        # to_device(data, device)
-        # to_device(targets, device)
+        if not isinstance(model, DataParallel):
+            data = util.to_device(data, device)
+        targets = util.to_device(targets, device)
 
         optimizer.zero_grad()
 
@@ -180,6 +182,7 @@ def train_epoch(model, criterion, loader, optimizer, epoch, device, print_freq):
 
         if i % print_freq == 0:
             progress.display(i)
+            progress.reset()
 
     return losses.avg
 
@@ -211,7 +214,7 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
             args['start_epoch'] = epoch + 1
 
             util.save_checkpoint({
-                'state_dict': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
+                'state_dict': model.module.state_dict() if isinstance(model, DataParallel) else model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict() if scheduler else None,
                 'tracker': training_tracker,
@@ -237,8 +240,9 @@ def validate(loader, model, criterion, device, print_freq, save_results=False):
         end = time.time()
         for i, (data, targets) in enumerate(loader):
             
-            # to_device(data, device)
-            # to_device(targets, device)
+            if not isinstance(model, DataParallel):
+                data = util.to_device(data, device)
+            targets = util.to_device(targets, device)
 
             output = model(data)
             loss = criterion(output, targets)

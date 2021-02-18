@@ -1,18 +1,12 @@
-from .base import _VisionModel
+from deeplearning.models.vision.base import _VisionModel
 from torchvision.models import vgg16_bn, vgg16
 
-class _Wrapper(_VisionModel):
+class _VGG(_VisionModel):
 
     def __init__(self, model, **kwargs):
         super().__init__(**kwargs)
 
         self.model = model
-    
-    def forward(self, x):
-        return self.model(x)  
-
-
-class _VGG(_Wrapper):
 
     @staticmethod
     def args(parser):
@@ -20,6 +14,9 @@ class _VGG(_Wrapper):
         parser.add_argument('--num_classes', type=int, required=True)
 
         super(_VGG, _VGG).args(parser)
+
+    def forward(self, x):
+        return self.model(x)  
         
 
 class VGG16_bn(_VGG):

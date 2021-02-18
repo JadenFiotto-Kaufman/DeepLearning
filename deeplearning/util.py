@@ -75,6 +75,10 @@ class ProgressMeter(object):
         entries += [str(meter) for meter in self.meters]
         print('\t'.join(entries))
 
+    def reset(self):
+        for meter in self.meters:
+            meter.reset()
+
     def _get_batch_fmtstr(self, num_batches):
         num_digits = len(str(num_batches // 1))
         fmt = '{:' + str(num_digits) + 'd}'
@@ -133,6 +137,7 @@ def load(path, device, dont_load_args=False):
     checkpoint = torch.load(path, map_location=device)
 
     if 'args' in checkpoint and not dont_load_args:
+        print("==> loading args")
         for arg in checkpoint['args']:
             if f'--{arg}' not in sys.argv:
                 value = checkpoint['args'][arg]

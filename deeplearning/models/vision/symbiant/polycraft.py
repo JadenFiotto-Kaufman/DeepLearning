@@ -1,5 +1,6 @@
 import torch
 from deeplearning.models.base import Model
+from deeplearning.models.vision.pytorch.resnet import Resnet18
 
 class Unflatten(torch.nn.Module):
     def __init__(self, *shape):
@@ -56,4 +57,13 @@ class MappingModel(Model):
         x = self.increase(x)
         
         return x 
+
+class MaskClassification(Resnet18):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        _conv1 = self.model.conv1
+        self.model.conv1 = torch.nn.Conv2d(4, _conv1.out_channels, kernel_size=_conv1.kernel_size, stride=_conv1.stride, padding=_conv1.padding,
+                               bias=True)
 

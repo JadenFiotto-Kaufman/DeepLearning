@@ -105,3 +105,35 @@ class PolycraftMappingDataset(_VisionDataset):
                         help="path to root of data if pointers are relative")
 
         super(PolycraftMappingDataset,PolycraftMappingDataset).args(parser)
+
+class PolycraftMaskClassification(_VisionDataset):
+   
+    def __init__(self, path, **kwargs):
+
+        kwargs = super().__init__(**kwargs)
+
+        self.data = pd.read_csv(path)
+        self.transforms = kwargs['transform']
+
+    def __getitem__(self, idx):
+        item = self.data.iloc[idx]
+
+        image = Image.open(item['image']).convert("RGB")
+        mask = Image.fromarray(np.load(item['object']), mode='L')
+        image.putalpha(mask)
+
+        return self.transforms(image), item['target'] - 1
+
+       
+
+    def __len__(self):
+        return len(self.data)
+
+
+    @staticmethod
+    def args(parser):
+        parser.add_argument("--path", type=str,
+                        help="path to relevant data. this should be a csv file with pointers from image path to grid path (with headers image, truth) if training or validation, and an image or directory of image if predicting", required=True)
+
+
+        super(PolycraftMaskClassification,PolycraftMaskClassification).args(parser)

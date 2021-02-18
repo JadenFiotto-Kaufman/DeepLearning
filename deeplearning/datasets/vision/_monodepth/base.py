@@ -38,6 +38,7 @@ class _MonoDataset(Dataset):
                  split,
                  image_size,
                  frame_ids,
+                 num_frames,
                  use_stereo,
                  scales,
                  img_ext='.jpg',
@@ -110,7 +111,7 @@ class _MonoDataset(Dataset):
                 self.data[config][frame] = {}
             self.data[config][frame][side] = path
 
-            if frame not in (0, 13):
+            if frame > 0 and frame < num_frames:
                 self.filenames.append(filename)
 
 
@@ -245,6 +246,9 @@ class _MonoDataset(Dataset):
                                  type=int,
                                  help="frames to load",
                                  default=[0, -1, 1])
+        parser.add_argument("--num_frames",
+                                 type=int,
+                                 default=13)
         parser.add_argument("--use_stereo",
                                  help="if set, uses stereo pair for training",
                                  action="store_true")
