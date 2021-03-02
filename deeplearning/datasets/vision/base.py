@@ -40,7 +40,7 @@ class _VisionDataset(Dataset):
             if horizontal_flip_transform:
                 transforms.insert(0, _transforms.RandomHorizontalFlip(p=horizontal_flip_transform))
             if color_jitter_transform:
-                transforms.insert(0, _transforms.ColorJitter(.4, .4, .4, .2))
+                transforms.insert(0, _transforms.ColorJitter(*color_jitter_transform))
             if rotate_transform:
                 transforms.insert(0, _transforms.RandomRotation(degrees=rotate_transform, expand=True))
 
@@ -74,7 +74,7 @@ class _VisionDataset(Dataset):
                             help="transform the input images and grids by horizontally flipping them at some rate (default: .5)")
         parser.add_argument("--rotate_transform", nargs='?',
                         default=None, const=2, type=int)
-        parser.add_argument("--color_jitter_transform",
-                            default=False, const=True, nargs='?')
+        parser.add_argument("--color_jitter_transform", type=float, default=None, nargs='*')
+
 
         super(_VisionDataset, _VisionDataset).args(parser)

@@ -8,7 +8,8 @@ class _WeightedLoss(Loss):
 
     def __init__(self, **kwargs):
         Loss.__init__(self, **kwargs)
-        kwargs['weight'] = torch.FloatTensor(kwargs['weight'])
+        if kwargs['weight']:
+            kwargs['weight'] = torch.FloatTensor(kwargs['weight'])
         return kwargs
 
     @staticmethod

@@ -250,6 +250,9 @@ class DepthEstimator(Model):
         
         return (inputs, outputs)
 
+    def disparity_to_depth(self, disparity, baseline):
+
+        return baseline / (1./self.max_depth + (1./self.min_depth - 1./self.max_depth) * disparity)
         
     @staticmethod
     def args(parser):

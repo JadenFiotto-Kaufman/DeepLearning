@@ -182,7 +182,6 @@ def train_epoch(model, criterion, loader, optimizer, epoch, device, print_freq):
 
         if i % print_freq == 0:
             progress.display(i)
-            progress.reset()
 
     return losses.avg
 
