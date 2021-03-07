@@ -67,3 +67,5 @@ class MaskClassification(Resnet18):
         self.model.conv1 = torch.nn.Conv2d(4, _conv1.out_channels, kernel_size=_conv1.kernel_size, stride=_conv1.stride, padding=_conv1.padding,
                                bias=True)
 
+        self.model.fc = torch.nn.Sequential(torch.nn.Dropout(), self.model.fc)
+
