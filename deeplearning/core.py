@@ -14,6 +14,7 @@ from deeplearning.optimizers import Optimizer
 from deeplearning.models import Model
 from deeplearning.models.wrappers import DataParallel
 from deeplearning.schedulers import Scheduler
+from deeplearning.validators import Validator
 
 
 def init_args(parser):
@@ -31,6 +32,8 @@ def core_args(parser):
     parser.add_argument("--loss", type=str, choices=Base.options(Loss).keys(), required=True)
     parser.add_argument("--optimizer", type=str, choices=Base.options(Optimizer).keys(), required=True)
     parser.add_argument("--scheduler", type=str, choices=Base.options(Scheduler).keys(), default=None)
+    parser.add_argument("--validators", type=str, choices=Base.options(Validator).keys(), nargs='*', default=None)
+
     
     parser.add_argument("--print_freq", type=int, default=10,
                         help="number of batches between two logs (default: 10)")
@@ -133,20 +136,29 @@ def main():
 
     criterion, _kwargs = Base.get_instance(args.loss, parent=Loss)
     criterion = criterion.to(device)
+
     kwargs.update(_kwargs)
+
+    validators = []
+
+    if args.validators:
+
+        validators, _kwargss = list(zip(*[Base.get_instance(validator, parent=Validator) for validator in args.validators]))
+
+        [kwargs.update(_kwargs) for _kwargs in _kwargss]
 
     if dataset.dataset_type is Dataset.DatasetType.validate:
         print("=> validation mode")
         _, results = validate(val_loader, model, criterion,
-                              device, args.print_freq, save_results=True)
-    elif dataset.dataset_type is Dataset.DatasetType.predict:
+                              device, args.print_freq, validators, save_results=True)
+    elif dataset.dataset_type is Dataset.DatasetType.predict: 
         print("=> prediction mode")
         results = predict(model, val_loader, device)
     else:
         print("=> training mode")
         train(model, criterion, train_loader, val_loader, optimizer, scheduler,
               range(args.start_epoch, args.epochs), device,
-              args.print_freq, args.save_freq, args.best_loss, training_tracker, kwargs)
+              args.print_freq, args.save_freq, args.best_loss, training_tracker, validators, kwargs)
 
 def train_epoch(model, criterion, loader, optimizer, epoch, device, print_freq):
     model.train()
@@ -185,7 +197,7 @@ def train_epoch(model, criterion, loader, optimizer, epoch, device, print_freq):
 
     return losses.avg
 
-def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoch_range, device, print_freq, save_freq, best_loss, training_tracker, args):
+def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoch_range, device, print_freq, save_freq, best_loss, training_tracker, validators,  args):
 
     for epoch in epoch_range:
 
@@ -199,7 +211,7 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
 
         if (epoch + 1) % save_freq == 0:
             val_loss, _ = validate(
-                val_loader, model, criterion, device, print_freq)
+                val_loader, model, criterion, device, print_freq, validators)
 
             training_tracker['val'].append((epoch, val_loss))
 
@@ -222,15 +234,17 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
 
             print("=> model saved")
 
-def validate(loader, model, criterion, device, print_freq, save_results=False):
+def validate(loader, model, criterion, device, print_freq, validators, save_results=False):
     model.eval()
 
     batch_time = util.AverageMeter('Time', ':6.3f')
     losses = util.AverageMeter('Loss', ':.4e')
 
+    validator_meters = [util.AverageMeter(validator.name(), validator.format()) for validator in validators]
+
     progress =  util.ProgressMeter(
         len(loader),
-        [batch_time, losses],
+        validator_meters + [batch_time, losses],
         prefix='Validation: ')
 
     results = []
@@ -246,6 +260,9 @@ def validate(loader, model, criterion, device, print_freq, save_results=False):
             output = model(data)
             loss = criterion(output, targets)
             losses.update(loss.item(), loader.batch_size)
+
+            for vi, meter in enumerate(validator_meters):
+                meter.update(validators[vi](output, targets))
 
             batch_time.update(time.time() - end)
             end = time.time()

@@ -1,5 +1,5 @@
 import torch
-from torch.nn import CrossEntropyLoss as _CrossEntropyLoss
+from torch.nn import CrossEntropyLoss as _CrossEntropyLoss, BCEWithLogitsLoss as _BCEWithLogitsLoss
 
 from .base import Loss
 
@@ -25,4 +25,10 @@ class CrossEntropyLoss(_WeightedLoss, _CrossEntropyLoss):
     def __init__(self, **kwargs):
         kwargs = _WeightedLoss.__init__(self, **kwargs)
         _CrossEntropyLoss.__init__(self, **kwargs)
+
+class BCEWithLogitsLoss(_WeightedLoss, _BCEWithLogitsLoss):
+
+    def __init__(self, **kwargs):
+        kwargs = _WeightedLoss.__init__(self, **kwargs)
+        _BCEWithLogitsLoss.__init__(self, **kwargs)
 

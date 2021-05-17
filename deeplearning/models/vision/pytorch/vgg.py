@@ -1,5 +1,5 @@
 from deeplearning.models.vision.base import _VisionModel
-from torchvision.models import vgg16_bn, vgg16
+from torchvision.models import vgg16_bn, vgg16, vgg11_bn, vgg11
 
 class _VGG(_VisionModel):
 
@@ -29,4 +29,16 @@ class VGG16(_VGG):
 
     def __init__(self, **kwargs):
         model = vgg16(**kwargs)
+        super().__init__(model=model,**kwargs)
+
+class VGG11_bn(_VGG):
+
+    def __init__(self, **kwargs):
+        model = vgg11_bn(**kwargs)
+        super().__init__(model=model,**kwargs)
+
+class VGG11(_VGG):
+
+    def __init__(self, **kwargs):
+        model = vgg11(**kwargs)
         super().__init__(model=model,**kwargs)

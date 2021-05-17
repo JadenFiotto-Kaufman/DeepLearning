@@ -27,4 +27,20 @@ class TrainValSplit(Dataset.__wrapper__):
 
 
 
+class SeparateVal(Dataset.__wrapper__):
+
+    def __init__(self, **kwargs):
+        
+        super().__init__(**kwargs)
+        import pdb
+        pdb.set_trace()
+
+    @staticmethod
+    def args(parser):
+        parser.add_argument("--val_percent",  default=.15, type=float)
+        
+        super(SeparateVal,SeparateVal).args(parser)
+
+
+
 
