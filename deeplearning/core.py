@@ -25,14 +25,14 @@ def init_args(parser):
 
 def core_args(parser):
     
-    parser.add_argument("--model", type=str, choices=Base.options(Model).keys(), required=True)
-    parser.add_argument("--model_wrappers", type=str, choices=Base.options(Model.__wrapper__).keys(), nargs='*', default=None)
-    parser.add_argument("--dataset", type=str, choices=Base.options(Dataset).keys(), required=True)
-    parser.add_argument("--dataset_wrappers", type=str, choices=Base.options(Dataset.__wrapper__).keys(), nargs='*', default=None)
-    parser.add_argument("--loss", type=str, choices=Base.options(Loss).keys(), required=True)
-    parser.add_argument("--optimizer", type=str, choices=Base.options(Optimizer).keys(), required=True)
-    parser.add_argument("--scheduler", type=str, choices=Base.options(Scheduler).keys(), default=None)
-    parser.add_argument("--validators", type=str, choices=Base.options(Validator).keys(), nargs='*', default=None)
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--model_wrappers", type=str, nargs='*', default=None)
+    parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--dataset_wrappers", type=str, nargs='*', default=None)
+    parser.add_argument("--loss", type=str, required=True)
+    parser.add_argument("--optimizer", type=str, required=True)
+    parser.add_argument("--scheduler", type=str, default=None)
+    parser.add_argument("--validators", type=str, nargs='*', default=None)
 
     
     parser.add_argument("--print_freq", type=int, default=10,
@@ -84,7 +84,6 @@ def get_dataloaders(dataset, args):
 
 
 def main():
-    util.import_submodules(__package__)
 
     parser = argparse.ArgumentParser(allow_abbrev=False)
     

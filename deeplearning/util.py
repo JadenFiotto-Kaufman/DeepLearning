@@ -1,42 +1,17 @@
-import pkgutil
-import importlib
 import matplotlib.pyplot as plt
 import torch
 import shutil
 import sys
+import importlib
 
+def import_class(cls):
 
-def subclasses(cls):
-    _subclasses = {}
-    
-    for scls in cls.__subclasses__():
-        if not scls.__name__.startswith('_'):
-            key = '.'.join((f'{scls.__module__}.{scls.__name__}'.split('.')[2:]))
-            _subclasses[key] = scls
-        _subclasses.update(subclasses(scls))
+    levels = cls.split('.')
 
-    return _subclasses
+    module = importlib.import_module('.'.join(levels[:-1]))
+    cls = getattr(module, levels[-1])
 
-
-def import_submodules(package, recursive=True):
-    """ Import all submodules of a module, recursively, including subpackages
-
-    :param package: package (name or actual module)
-    :type package: str | module
-    :rtype: dict[str, types.ModuleType]
-    """
-    if isinstance(package, str):
-        package = importlib.import_module(package)
-    results = {}
-    for loader, name, is_pkg in pkgutil.walk_packages(package.__path__):
-        full_name = package.__name__ + '.' + name
-        if len(full_name.split('.')) > 2:
-            results[full_name] = importlib.import_module(full_name)
-        if recursive and is_pkg:
-            results.update(import_submodules(full_name))
-    return results
-
-
+    return cls
 
 
 class AverageMeter(object):

@@ -50,22 +50,9 @@ class Dataset(Base, _Dataset):
 
         super(Dataset,Dataset).args(parser)
 
-    # @staticmethod
-    # def val_args(cls):
-    #     parser = argparse.ArgumentParser(allow_abbrev=False)
-    #     cls.args(parser)
-
-    #     for action in parser._actions:
-    #         print(action)
-        
-    #     return vars(parser.parse_known_args()[0])
-
-
 
 class _DatasetWrapper(Base.__wrapper__, Dataset):
-
-        def __getattr__(self, name):
-            return getattr(self._obj, name)
+    pass
 
 
 Dataset.__wrapper__ = _DatasetWrapper

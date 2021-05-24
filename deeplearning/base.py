@@ -1,9 +1,5 @@
 import argparse
-from .util import subclasses
-
-
-
-
+from deeplearning.util import import_class
 class Base():
 
 
@@ -22,14 +18,10 @@ class Base():
         pass
 
     @staticmethod
-    def options(cls):
-        return dict(subclasses(cls))
-
-    @staticmethod
     def get_instance(cls, parent=None, wrappers=None, **kwargs):
 
         if isinstance(cls, str):
-            cls = Base.options(parent)[cls]
+            cls = import_class(cls)
             
         _kwargs = Base.kwargs(cls)
         
@@ -38,7 +30,7 @@ class Base():
         if wrappers:
             for wrapper in wrappers:
                 if isinstance(wrapper, str):
-                    wrapper = Base.options(cls.__wrapper__)[wrapper]
+                    wrapper = import_class(wrapper)
                 wkwargs = Base.kwargs(wrapper)
                 instance = wrapper(obj=instance, **{**wkwargs, **kwargs})
 
