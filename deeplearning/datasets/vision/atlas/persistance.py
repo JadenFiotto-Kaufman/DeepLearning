@@ -20,28 +20,35 @@ class FAPersistance(Dataset):
         self.target_column = target_column
 
         db = create_engine(f'sqlite:///{paths[0]}')
-        #self.data = pd.read_sql_query(f"SELECT {', '.join(self.columns + [self.target_column])} FROM top_features INNER JOIN meta_data ON top_features.faFlightID=meta_data.faFlightID", db) 
-        self.data = pd.read_sql_query(f"SELECT * FROM meta_data", db) 
+        db = pd.read_sql_query(f"SELECT * FROM meta_data", db) 
 
         csv_data = pd.read_csv(paths[1])
-
-        self.data = pd.merge(self.data, csv_data, on='faFlightID')
-
-        self.targets = {target : i for i, target in enumerate(self.data[self.target_column].unique())}
+        self.data = list(pd.merge(db, csv_data, on='faFlightID').groupby('faFlightID'))
+        self.targets = {target : i for i, target in enumerate(db[self.target_column].unique())}
 
     def __getitem__(self, idx):
-        row = self.data.iloc[idx]
+        group = self.data[idx][1]
 
         data = []
 
-        for column in self.columns:
+        for i in range(len(group)):
 
-            data.append(torch.from_numpy(np.array(eval(row[column]))).float())
+            row = group.iloc[i]
 
+            _data = []
 
-        data = torch.cat(data, dim=0).unsqueeze(dim=0)
+            for column in self.columns:
 
-        return data, self.targets[row[self.target_column]]
+                _data.append(torch.from_numpy(np.array(eval(row[column]))))
+
+            data.append(torch.cat(_data, dim=0).unsqueeze(dim=0))
+
+        if len(data) == 1:
+            data = data[0]
+        else:
+            data = torch.stack(data, dim=1)
+
+        return data.float(), self.targets[row[self.target_column]]
 
 
     def __len__(self):
@@ -50,7 +57,6 @@ class FAPersistance(Dataset):
     @staticmethod
     def args(parser):
         parser.add_argument("--paths", nargs='+', type=str, help="path to flight aware db and csv", required=True)
-
         parser.add_argument("--columns", nargs='+',type=str, required=True ,help="persistance image columns")
         parser.add_argument("--target_column",type=str, required=True ,help="persistance image target column")
 

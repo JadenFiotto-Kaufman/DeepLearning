@@ -2,6 +2,8 @@ import torch
 from deeplearning.models.vision.base import _VisionModel
 from deeplearning.models.vision.pytorch.resnet import Resnet18
 from deeplearning.models.vision.pytorch.vgg import VGG11_bn
+from deeplearning.models.base import Model
+from deeplearning.models.vision.atlas.resnet4D import resnet18 as resnet184D
 
 class FAClassification(_VisionModel):
 
@@ -116,3 +118,19 @@ class FAClassificationVGG(VGG11_bn):
 
 
 
+class FAClassificationResnet4D(Model):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.model = resnet184D(sample_duration=3, sample_size=16, **kwargs)
+
+    def forward(self,x):
+        return self.model(x)
+
+
+    @staticmethod
+    def args(parser):
+        parser.add_argument('--num_classes', type=int, required=True)
+
+        super(FAClassificationResnet4D, FAClassificationResnet4D).args(parser)
