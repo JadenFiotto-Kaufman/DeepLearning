@@ -1,4 +1,5 @@
 import os
+import pdb
 import time
 import sys
 
@@ -111,10 +112,7 @@ def main():
     kwargs.update(_kwargs)
 
     if model_state_dict:
-        if isinstance(model, DataParallel):
-            model.module.load_state_dict(model_state_dict)
-        else:
-            model.load_state_dict(model_state_dict)
+        model.load_state_dict(model_state_dict)
 
     model = model.to(device)
 

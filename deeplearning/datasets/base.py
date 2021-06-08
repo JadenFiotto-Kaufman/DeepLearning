@@ -1,7 +1,6 @@
-import argparse
 from enum import Enum
 
-from deeplearning.base import Base, _Wrapper
+from deeplearning.base import Base
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as _Dataset
 
