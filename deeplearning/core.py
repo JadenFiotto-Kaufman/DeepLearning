@@ -1,7 +1,6 @@
-import os
-import pdb
+
 import time
-import sys
+import pickle
 
 import numpy as np
 import torch
@@ -10,13 +9,7 @@ import argparse
 from deeplearning import util
 from deeplearning.base import Base
 from deeplearning.datasets import Dataset
-from deeplearning.losses import Loss
-from deeplearning.optimizers import Optimizer
-from deeplearning.models import Model
 from deeplearning.models.wrappers import DataParallel
-from deeplearning.schedulers import Scheduler
-from deeplearning.validators import Validator
-
 
 def init_args(parser):
     parser.add_argument('--load', type=str,help='path to checkpoint')
@@ -76,7 +69,7 @@ def get_dataloaders(dataset, args):
 
     if dataset.dataset_type == Dataset.DatasetType.train:
             train_loader = dataset.dataloader()
-            val_loader = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers, dataset_type=Dataset.DatasetType.validate, device=dataset.device)[0].dataloader()
+            val_loader = Base.get_instance(args.dataset, wrappers=args.dataset_wrappers, dataset_type=Dataset.DatasetType.validate, device=dataset.device)[0].dataloader()
     else:
         val_loader = dataset.dataloader()
 
@@ -103,12 +96,12 @@ def main():
     args, _ = parser.parse_known_args()
     kwargs = vars(args)
 
-    dataset, _kwargs = Base.get_instance(args.dataset, parent=Dataset, wrappers=args.dataset_wrappers, device=device)
+    dataset, _kwargs = Base.get_instance(args.dataset, wrappers=args.dataset_wrappers, device=device)
     kwargs.update(_kwargs)
 
     train_loader, val_loader = get_dataloaders(dataset, args)
 
-    model, _kwargs = Base.get_instance(args.model, parent=Model, wrappers=args.model_wrappers)
+    model, _kwargs = Base.get_instance(args.model, wrappers=args.model_wrappers)
     kwargs.update(_kwargs)
 
     if model_state_dict:
@@ -116,7 +109,7 @@ def main():
 
     model = model.to(device)
 
-    optimizer, _kwargs = Base.get_instance(args.optimizer, parent=Optimizer, params=model.parameters())
+    optimizer, _kwargs = Base.get_instance(args.optimizer, params=model.parameters())
     kwargs.update(_kwargs)
 
     if optimizer_state_dict:
@@ -125,13 +118,13 @@ def main():
     scheduler = None
 
     if args.scheduler:
-        scheduler, _kwargs = Base.get_instance(args.scheduler, parent=Scheduler, optimizer=optimizer)
+        scheduler, _kwargs = Base.get_instance(args.scheduler, optimizer=optimizer)
         kwargs.update(_kwargs)
 
         if scheduler_state_dict:
             scheduler.load_state_dict(scheduler_state_dict)
 
-    criterion, _kwargs = Base.get_instance(args.loss, parent=Loss)
+    criterion, _kwargs = Base.get_instance(args.loss)
     criterion = criterion.to(device)
 
     kwargs.update(_kwargs)
@@ -140,7 +133,7 @@ def main():
 
     if args.validators:
 
-        validators, _kwargss = list(zip(*[Base.get_instance(validator, parent=Validator) for validator in args.validators]))
+        validators, _kwargss = list(zip(*[Base.get_instance(validator, dataset=dataset) for validator in args.validators]))
 
         [kwargs.update(_kwargs) for _kwargs in _kwargss]
 
@@ -148,6 +141,7 @@ def main():
         print("=> validation mode")
         _, results = validate(val_loader, model, criterion,
                               device, args.print_freq, validators, save_results=True)
+        pickle.dump(results, open( "save.p", "wb" ) )
     elif dataset.dataset_type is Dataset.DatasetType.predict: 
         print("=> prediction mode")
         results = predict(model, val_loader, device)
@@ -267,7 +261,7 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
             if i % print_freq == 0:
                 progress.display(i)
             if save_results:
-                results.extend([(i * len(data) + ii, output[ii].cpu().numpy()) for ii in range(len(data))])
+                results.extend(zip(targets.cpu().numpy(), output.cpu().numpy()))
 
     return losses.avg, results
 

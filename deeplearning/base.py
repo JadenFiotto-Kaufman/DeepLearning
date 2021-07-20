@@ -1,7 +1,8 @@
 import argparse
 from deeplearning.util import import_class
-class Base():
 
+
+class Base():
 
     def __init__(self, **kwargs):
         pass
@@ -22,9 +23,9 @@ class Base():
 
         if isinstance(cls, str):
             cls = import_class(cls)
-            
+
         _kwargs = Base.kwargs(cls)
-        
+
         instance = cls(**{**_kwargs, **kwargs})
 
         if wrappers:
@@ -35,24 +36,23 @@ class Base():
                 instance = wrapper(obj=instance, **{**wkwargs, **kwargs})
 
                 _kwargs.update(wkwargs)
-        
+
         return instance, _kwargs
 
 
 class _Wrapper(Base):
-        def __init__(self, obj, **kwargs):
-            self.__dict__['_obj'] = obj
-            self.__dict__.update(obj.__dict__)
-            
+    def __init__(self, obj, **kwargs):
+        self.__dict__['_obj'] = obj
+        self.__dict__.update(obj.__dict__)
 
-            return kwargs
-            
-        def __len__(self):
-            return len(self._obj)
+        return kwargs
 
-        @staticmethod
-        def args(parser):
-            pass
+    def __len__(self):
+        return len(self._obj)
+
+    @staticmethod
+    def args(parser):
+        pass
 
 
 Base.__wrapper__ = _Wrapper

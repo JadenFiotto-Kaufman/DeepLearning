@@ -1,4 +1,4 @@
-from torch.optim import Adam as _Adam, RMSprop as _RMSprop
+from torch.optim import Adam as _Adam, RMSprop as _RMSprop, AdamW as _AdamW
 from .base import Optimizer
 
 class Adam(Optimizer, _Adam):
@@ -15,6 +15,21 @@ class Adam(Optimizer, _Adam):
                         help="weight decay for optimizer ")
 
         super(Adam,Adam).args(parser)
+
+class AdamW(Optimizer, _AdamW):
+
+    def __init__(self, params, **kwargs):
+        Optimizer.__init__(self, **kwargs)
+        _AdamW.__init__(self, params, **kwargs)
+
+    @staticmethod
+    def args(parser):
+        parser.add_argument("--lr", type=float, default=.0003,
+                        help="learning rate for optimizer")
+        parser.add_argument("--weight_decay", type=float, default=.0,
+                        help="weight decay for optimizer ")
+
+        super(AdamW,AdamW).args(parser)
 
 
 class RMSprop(Optimizer, _RMSprop):

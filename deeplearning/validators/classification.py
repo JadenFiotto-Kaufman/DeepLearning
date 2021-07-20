@@ -37,6 +37,7 @@ class ClassificationAccuracy(Validator):
         output = torch.softmax(output, dim=1).argsort(dim=1)[:,-self.topn:]
 
         return sum([targets[i] in output[i] for i in range(len(output))]) / len(output)
+        
 
     @staticmethod
     def args(parser):
