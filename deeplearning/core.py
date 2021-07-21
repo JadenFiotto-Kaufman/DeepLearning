@@ -75,8 +75,6 @@ def get_dataloaders(dataset, args):
 
     return train_loader, val_loader
 
-
-
 def main():
 
     print("=> starting")
@@ -283,8 +281,8 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
                 results['targets'].extend(targets.cpu().numpy())
 
     if save_results:
-        results['predicted'] = np.concatenate(results['predicted'])
-        results['targets'] = np.concatenate(results['targets'])
+        results['predicted'] = np.stack(results['predicted'])
+        results['targets'] = np.stack(results['targets'])
 
     return losses.avg, results
 
