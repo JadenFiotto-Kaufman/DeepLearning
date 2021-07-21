@@ -79,6 +79,8 @@ def get_dataloaders(dataset, args):
 
 def main():
 
+    print("=> starting")
+
     parser = argparse.ArgumentParser(allow_abbrev=False)
     
     init_args(parser)
@@ -96,10 +98,14 @@ def main():
     args, _ = parser.parse_known_args()
     kwargs = vars(args)
 
+    print(f"=> building dataset ({args.dataset})")
+
     dataset, _kwargs = Base.get_instance(args.dataset, wrappers=args.dataset_wrappers, device=device)
     kwargs.update(_kwargs)
 
     train_loader, val_loader = get_dataloaders(dataset, args)
+
+    print(f"=> building model ({args.model})")
 
     model, _kwargs = Base.get_instance(args.model, wrappers=args.model_wrappers)
     kwargs.update(_kwargs)
@@ -108,6 +114,8 @@ def main():
         model.load_state_dict(model_state_dict)
 
     model = model.to(device)
+
+    print(f"=> building optimizer ({args.optimizer})")
 
     optimizer, _kwargs = Base.get_instance(args.optimizer, params=model.parameters())
     kwargs.update(_kwargs)
@@ -118,11 +126,16 @@ def main():
     scheduler = None
 
     if args.scheduler:
+        
+        print(f"=> building scheduler ({args.scheduler})")
+
         scheduler, _kwargs = Base.get_instance(args.scheduler, optimizer=optimizer)
         kwargs.update(_kwargs)
 
         if scheduler_state_dict:
             scheduler.load_state_dict(scheduler_state_dict)
+
+    print(f"=> building criterion ({args.loss})")
 
     criterion, _kwargs = Base.get_instance(args.loss)
     criterion = criterion.to(device)
@@ -132,6 +145,8 @@ def main():
     validators = []
 
     if args.validators:
+
+        print(f"=> building validators ({args.validators})")
 
         validators, _kwargss = list(zip(*[Base.get_instance(validator, dataset=dataset) for validator in args.validators]))
 
@@ -238,7 +253,10 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
         validator_meters + [batch_time, losses],
         prefix='Validation: ')
 
-    results = []
+    results = {
+        'predicted' : [],
+        'targets' : []
+    }
 
     with torch.no_grad():
         end = time.time()
@@ -261,7 +279,12 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
             if i % print_freq == 0:
                 progress.display(i)
             if save_results:
-                results.extend(zip(targets.cpu().numpy(), output.cpu().numpy()))
+                results['predicted'].extend(output.cpu().numpy())
+                results['targets'].extend(targets.cpu().numpy())
+
+    if save_results:
+        results['predicted'] = np.concatenate(results['predicted'])
+        results['targets'] = np.concatenate(results['targets'])
 
     return losses.avg, results
 

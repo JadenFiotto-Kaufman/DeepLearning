@@ -4,6 +4,7 @@ DeepLearning.egg-info/SOURCES.txt
 DeepLearning.egg-info/dependency_links.txt
 DeepLearning.egg-info/top_level.txt
 deeplearning/__init__.py
+deeplearning/__main__.py
 deeplearning/base.py
 deeplearning/core.py
 deeplearning/util.py
@@ -49,3 +50,6 @@ deeplearning/optimizers/torch.py
 deeplearning/schedulers/__init__.py
 deeplearning/schedulers/base.py
 deeplearning/schedulers/torch.py
+deeplearning/validators/__init__.py
+deeplearning/validators/base.py
+deeplearning/validators/classification.py
