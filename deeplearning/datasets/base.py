@@ -3,7 +3,7 @@ from enum import Enum
 from deeplearning.base import Base
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as _Dataset
-
+from deeplearning.util import str2bool
 
 
 
@@ -45,7 +45,7 @@ class Dataset(Base, _Dataset):
         parser.add_argument("--batch_size", type=int, default=256,
                         help="batch size(default: 256)")
         parser.add_argument("--num_workers", type=int, default=2)
-        parser.add_argument("--drop_last", nargs='?', default=False, const=True, type=bool)
+        parser.add_argument("--drop_last", type=str2bool, nargs='?', const=True, default='False')
 
         super(Dataset,Dataset).args(parser)
 
