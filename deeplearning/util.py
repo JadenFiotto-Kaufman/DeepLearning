@@ -3,6 +3,7 @@ import torch
 import shutil
 import sys
 import importlib
+import argparse
 
 def import_class(cls):
 
@@ -116,7 +117,7 @@ def load(path, device, dont_load_args=False):
         for arg in checkpoint['args']:
             if f'--{arg}' not in sys.argv:
                 value = checkpoint['args'][arg]
-                if value:
+                if value is not None:
                     sys.argv.append(f'--{arg}')
                     if not isinstance(value, list):
                         sys.argv.append(f'{value}')
@@ -132,3 +133,13 @@ def load(path, device, dont_load_args=False):
             .format(path))
 
     return model_state_dict, checkpoint
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')

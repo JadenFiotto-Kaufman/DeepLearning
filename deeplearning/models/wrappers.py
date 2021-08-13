@@ -11,3 +11,6 @@ class DataParallel(Model.__wrapper__, _DataParallel):
 
     def load_state_dict(self, state_dict):
         self.module.load_state_dict(state_dict)
+
+    def state_dict(self):
+        return self.module.state_dict()

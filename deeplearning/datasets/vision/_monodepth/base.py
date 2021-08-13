@@ -1,17 +1,17 @@
 from __future__ import absolute_import, division, print_function
 
-import copy
+
 import os
 import random
 
 import numpy as np
-import PIL.Image as pil
-import skimage.transform
+
 import torch
-import torch.utils.data as data
+
 from PIL import Image
 from torchvision import transforms
 from deeplearning.datasets.base import Dataset
+from deeplearning.util import str2bool
 
 from .utils import generate_depth_map, pil_loader, readlines
 
@@ -257,7 +257,8 @@ class _MonoDataset(Dataset):
                                  default=[0, -1, 1])
         parser.add_argument("--use_stereo",
                                  help="if set, uses stereo pair for training",
-                                 action="store_true")
+                                 type=str2bool, nargs='?',
+                        const=True, default=False)
         parser.add_argument("--scales",
                                  nargs="+",
                                  type=int,

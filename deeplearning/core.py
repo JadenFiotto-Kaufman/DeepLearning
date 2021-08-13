@@ -41,8 +41,6 @@ def core_args(parser):
     parser.add_argument('--start_epoch', type=int, default=0,
                         help="manual start epoch to start at for training")    
 
-
-
 def init(args, device):
     training_tracker = {'train': [], 'val': []}
     optimizer_state_dict = None
@@ -152,8 +150,7 @@ def main():
 
     if dataset.dataset_type is Dataset.DatasetType.validate:
         print("=> validation mode")
-        _, results = validate(val_loader, model, criterion,
-                              device, args.print_freq, validators, save_results=True)
+        _, results = validate(val_loader, model, criterion,device, args.print_freq, validators, save_results=True)
         pickle.dump(results, open( "save.p", "wb" ) )
     elif dataset.dataset_type is Dataset.DatasetType.predict: 
         print("=> prediction mode")
@@ -198,6 +195,8 @@ def train_epoch(model, criterion, loader, optimizer, epoch, device, print_freq):
 
         if i % print_freq == 0:
             progress.display(i)
+        
+
 
     return losses.avg
 
@@ -214,8 +213,8 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
         training_tracker['train'].append((epoch, train_loss))
 
         if (epoch + 1) % save_freq == 0:
-            val_loss, _ = validate(
-                val_loader, model, criterion, device, print_freq, validators)
+
+            val_loss, _ = validate(val_loader, model, criterion, device, print_freq, validators)
 
             training_tracker['val'].append((epoch, val_loss))
 
@@ -228,13 +227,12 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
             args['best_loss'] = best_loss
             args['start_epoch'] = epoch + 1
 
-            util.save_checkpoint({
-                'state_dict': model.module.state_dict() if isinstance(model, DataParallel) else model.state_dict(),
+            util.save_checkpoint({'state_dict': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict() if scheduler else None,
                 'tracker': training_tracker,
-                'args': args
-            }, is_best)
+                'args': args}, 
+                is_best)
 
             print("=> model saved")
 
@@ -263,8 +261,9 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
             if not isinstance(model, DataParallel):
                 data = util.to_device(data, device)
             targets = util.to_device(targets, device)
-
+                    
             output = model(data)
+            
             loss = criterion(output, targets)
             losses.update(loss.item(), loader.batch_size)
 
@@ -280,9 +279,9 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
                 results['predicted'].extend(output.cpu().numpy())
                 results['targets'].extend(targets.cpu().numpy())
 
-    if save_results:
-        results['predicted'] = np.stack(results['predicted'])
-        results['targets'] = np.stack(results['targets'])
+        if save_results:
+            results['predicted'] = np.stack(results['predicted'])
+            results['targets'] = np.stack(results['targets'])
 
     return losses.avg, results
 

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from ._monodepth.networks import (BackprojectDepth, DepthDecoder, PoseCNN,
                                  PoseDecoder, Project3D, ResnetEncoder)
 from ._monodepth.util import disp_to_depth, transformation_from_parameters
+from deeplearning.util import str2bool
 
 class DepthEstimator(Model):
     
@@ -278,10 +279,12 @@ class DepthEstimator(Model):
                                  choices=["posecnn", "separate_resnet", "shared"])
         parser.add_argument("--predictive_mask",
                                  help="if set, uses a predictive masking scheme as in Zhou et al",
-                                 action="store_true")
+                                 type=str2bool, nargs='?',
+                        const=True, default=False)
         parser.add_argument("--disable_automasking",
                                  help="if set, doesn't do auto-masking",
-                                 action="store_true")
+                                 type=str2bool, nargs='?',
+                        const=True, default=False)
         parser.add_argument("--min_depth",
                                  type=float,
                                  help="minimum depth",
@@ -292,7 +295,8 @@ class DepthEstimator(Model):
                                  default=100.0)
         parser.add_argument("--v1_multiscale",
                                  help="if set, uses monodepth v1 multiscale",
-                                 action="store_true")
+                                 type=str2bool, nargs='?',
+                        const=True, default=False)
 
         parser.add_argument("--frame_ids",
                                  nargs="+",
@@ -301,7 +305,8 @@ class DepthEstimator(Model):
                                  default=[0, -1, 1])
         parser.add_argument("--use_stereo",
                                  help="if set, uses stereo pair for training",
-                                 action="store_true")
+                                 type=str2bool, nargs='?',
+                        const=True, default=False)
         parser.add_argument("--scales",
                                  nargs="+",
                                  type=int,
