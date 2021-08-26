@@ -6,4 +6,6 @@ setup(name='DeepLearning',
       description='Deep learning environment',
       author='Jaden Fiotto-Kaufman',
       author_email='jadenfk@outlook.com',
-      packages=find_packages(include=['deeplearning*']))
+      packages=find_packages(include=['deeplearning*']),
+      install_requires=['torch', 'numpy', 'matplotlib', 'torchvision'],
+      python_requires='>=3.7')

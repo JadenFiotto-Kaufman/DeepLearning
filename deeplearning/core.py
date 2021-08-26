@@ -31,18 +31,18 @@ def core_args(parser):
     
     parser.add_argument("--print_freq", type=int, default=10,
                         help="number of batches between two logs (default: 10)")
-    parser.add_argument("--save_freq", type=int, default=10,
-                        help="number of epochs between two validations and model saves (default: 10, 0 means no saving)")
+    parser.add_argument("--save_freq", type=int, default=1,
+                        help="number of epochs between two validations and model saves (default: 1, 0 means no saving)")
     parser.add_argument('--best_loss', type=float, default=np.inf,
                         help="manual best value to start to compare for saving the best model")
 
-    parser.add_argument("--epochs", type=int, default=100,
-                        help="number of epochs  (default: 100)")
+    parser.add_argument("--epochs", type=int, required=True,
+                        help="number of epochs")
     parser.add_argument('--start_epoch', type=int, default=0,
                         help="manual start epoch to start at for training")    
 
 def init(args, device):
-    training_tracker = {'train': [], 'val': []}
+    training_tracker = {'train': [], 'val': [], 'lr' : []}
     optimizer_state_dict = None
     scheduler_state_dict = None
     model_state_dict = None
@@ -152,9 +152,11 @@ def main():
         print("=> validation mode")
         _, results = validate(val_loader, model, criterion,device, args.print_freq, validators, save_results=True)
         pickle.dump(results, open( "save.p", "wb" ) )
+
     elif dataset.dataset_type is Dataset.DatasetType.predict: 
         print("=> prediction mode")
         results = predict(model, val_loader, device)
+        
     else:
         print("=> training mode")
         train(model, criterion, train_loader, val_loader, optimizer, scheduler,
@@ -196,8 +198,6 @@ def train_epoch(model, criterion, loader, optimizer, epoch, device, print_freq):
         if i % print_freq == 0:
             progress.display(i)
         
-
-
     return losses.avg
 
 def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoch_range, device, print_freq, save_freq, best_loss, training_tracker, validators,  args):
@@ -207,10 +207,14 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
         train_loss = train_epoch(model, criterion, train_loader,
                                  optimizer, epoch, device, print_freq)
 
-        if scheduler:
-            scheduler.step()
-
         training_tracker['train'].append((epoch, train_loss))
+        training_tracker['lr'].append((epoch, optimizer.param_groups[0]['lr']))
+
+        if scheduler:
+            try:
+                scheduler.step(train_loss, epoch=epoch)
+            except:
+                scheduler.step(epoch=epoch)
 
         if (epoch + 1) % save_freq == 0:
 
@@ -219,7 +223,7 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
             training_tracker['val'].append((epoch, val_loss))
 
             util.save_training_tracker(
-                './training.png', training_tracker['train'], training_tracker['val'])
+                './training.png', training_tracker['train'], training_tracker['val'], training_tracker['lr'])
 
             is_best = val_loss < best_loss
             best_loss = min(val_loss, best_loss)

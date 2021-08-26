@@ -66,23 +66,29 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth'):
     if is_best:
         shutil.copyfile(filename, 'model_best.pth')
 
-def save_training_tracker(path, train_loss, val_loss):
+def save_training_tracker(path, train_loss, val_loss, lr):
 
-    plt.scatter(*zip(*train_loss), label='Train', c='red')
-    plt.scatter(*zip(*val_loss), label='Val', c='blue')
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend(loc="upper right")
-    plt.savefig(path)
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+
+    ax1.scatter(*zip(*train_loss), label='Train', c='red')
+    ax1.scatter(*zip(*val_loss), label='Val', c='blue')
+    ax2.step(*zip(*lr), label='lr', c='lightpink')
+    ax1.set_xlabel("Epoch")
+    ax1.set_ylabel("Loss")
+    ax2.set_ylabel("Learning Rate")
+    ax1.legend(loc="upper right")
+    ax2.legend(loc="upper left")
+    plt.savefig(path,bbox_inches='tight',dpi=100)
     plt.clf()
 
 def get_device(device):
 
     if 'cuda' in str(device):
-        if torch.cuda.device_count() == 0:
-            print("=> no cuda devices available")
-        elif not torch.cuda.is_available():
+        if not torch.cuda.is_available():
             print("=> cuda is not available")
+        elif torch.cuda.device_count() == 0:
+            print("=> no cuda devices available")
         else: 
             return torch.device(device)
 
