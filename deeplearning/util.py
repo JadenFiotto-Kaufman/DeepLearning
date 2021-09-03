@@ -71,14 +71,17 @@ def save_training_tracker(path, train_loss, val_loss, lr):
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
 
-    ax1.scatter(*zip(*train_loss), label='Train', c='red')
-    ax1.scatter(*zip(*val_loss), label='Val', c='blue')
-    ax2.step(*zip(*lr), label='lr', c='lightpink')
+    sc1 = ax1.scatter(*zip(*train_loss), label='Train', c='red')
+    sc2 = ax1.scatter(*zip(*val_loss), label='Val', c='blue')
+    st1 = ax2.step(*zip(*lr), label='lr', c='lightpink', alpha=.5)
+
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Loss")
     ax2.set_ylabel("Learning Rate")
-    ax1.legend(loc="upper right")
-    ax2.legend(loc="upper left")
+    ax2.set_yscale('log')
+
+    fig.legend(loc="upper right")
+    
     plt.savefig(path,bbox_inches='tight',dpi=100)
     plt.clf()
 
