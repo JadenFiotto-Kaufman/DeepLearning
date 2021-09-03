@@ -280,15 +280,12 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
 
             if i % print_freq == 0:
                 progress.display(i)
+                
             if save_results:
                 results['predicted'].extend(util.to_device(output, torch.device('cpu')))
                 results['targets'].extend(util.to_device(targets, torch.device('cpu')))
                 results['input'].extend(util.to_device(data, torch.device('cpu')))
 
-        if save_results:
-            results['predicted'] = torch.stack(results['predicted'])
-            results['targets'] = torch.stack(results['targets'])
-            results['input'] = torch.stack(results['input'])
     return losses.avg, results
 
 def predict(model, loader, device):
