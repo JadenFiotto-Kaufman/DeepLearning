@@ -254,9 +254,9 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
         prefix='Validation: ')
 
     results = {
-        'predicted' : [],
+        'predictions' : [],
         'targets' : [],
-        'input' : []
+        'inputs' : []
     }
 
     with torch.no_grad():
@@ -282,9 +282,9 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
                 progress.display(i)
                 
             if save_results:
-                results['predicted'].extend(util.to_device(output, torch.device('cpu')))
+                results['predictions'].extend(util.to_device(output, torch.device('cpu')))
                 results['targets'].extend(util.to_device(targets, torch.device('cpu')))
-                results['input'].extend(util.to_device(data, torch.device('cpu')))
+                results['inputs'].extend(util.to_device(data, torch.device('cpu')))
 
     return losses.avg, results
 
