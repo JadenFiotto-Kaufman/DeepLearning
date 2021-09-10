@@ -17,6 +17,8 @@ def init_args(parser):
                         help="If loading from checkpoint, don't load args instead take from command line and defaults")
     parser.add_argument("--cuda", nargs='?', default=False, const=True, type=bool)
 
+    parser.add_argument("--save_results", choices=[0,1,2], default=0, const=1, type=int, help="0 : Don't save results in validation, 1 : Save results in valdiation, 2: Save results and input in validation")
+
 def core_args(parser):
     
     parser.add_argument("--model", type=str, required=True)
@@ -150,7 +152,7 @@ def main():
 
     if dataset.dataset_type is Dataset.DatasetType.validate:
         print("=> validation mode")
-        _, results = validate(val_loader, model, criterion,device, args.print_freq, validators, save_results=True)
+        _, results = validate(val_loader, model, criterion,device, args.print_freq, validators, save_results=_args.save_results)
         pickle.dump(results, open( "save.p", "wb" ) )
 
     elif dataset.dataset_type is Dataset.DatasetType.predict: 
@@ -240,7 +242,7 @@ def train(model, criterion, train_loader, val_loader, optimizer, scheduler, epoc
 
             print("=> model saved")
 
-def validate(loader, model, criterion, device, print_freq, validators, save_results=False):
+def validate(loader, model, criterion, device, print_freq, validators, save_results=0):
     model.eval()
 
     batch_time = util.AverageMeter('Time', ':6.3f')
@@ -283,12 +285,14 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
             if save_results:
                 results['predicted'].extend(output.cpu().numpy())
                 results['targets'].extend(targets.cpu().numpy())
-                results['input'].extend(data.cpu().numpy())
+                if save_results == 2:
+                    results['input'].extend(data.cpu().numpy())
 
         if save_results:
             results['predicted'] = np.stack(results['predicted'])
             results['targets'] = np.stack(results['targets'])
-            results['input'] = np.stack(results['input'])
+            if save_results == 2:
+                results['input'] = np.stack(results['input'])
 
     return losses.avg, results
 
