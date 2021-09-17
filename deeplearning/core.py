@@ -17,7 +17,7 @@ def init_args(parser):
                         help="If loading from checkpoint, don't load args instead take from command line and defaults")
     parser.add_argument("--cuda", nargs='?', default=False, const=True, type=bool)
 
-    parser.add_argument("--save_results", choices=[0,1,2], default=0, const=1, type=int, help="0 : Don't save results in validation, 1 : Save results in valdiation, 2: Save results and input in validation")
+    parser.add_argument("--save_results", choices=[0,1,2], default=0, nargs='?', const=1, type=int, help="0 : Don't save results in validation, 1 : Save results in valdiation, 2: Save results and input in validation")
 
 def core_args(parser):
     
@@ -282,18 +282,12 @@ def validate(loader, model, criterion, device, print_freq, validators, save_resu
 
             if i % print_freq == 0:
                 progress.display(i)
-                
+     
             if save_results:
-                results['predicted'].extend(output.cpu().numpy())
-                results['targets'].extend(targets.cpu().numpy())
+                results['predictions'].extend(util.to_device(output, torch.device('cpu')))
+                results['targets'].extend(util.to_device(targets, torch.device('cpu')))
                 if save_results == 2:
-                    results['inputs'].extend(data.cpu().numpy())
-
-        if save_results:
-            results['predictions'].extend(util.to_device(output, torch.device('cpu')))
-            results['targets'].extend(util.to_device(targets, torch.device('cpu')))
-            if save_results == 2:
-                results['inputs'].extend(util.to_device(data, torch.device('cpu')))
+                    results['inputs'].extend(util.to_device(data, torch.device('cpu')))
 
     return losses.avg, results
 
